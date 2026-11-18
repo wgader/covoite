@@ -20,9 +20,10 @@ use Symfony\UX\Map\Point;
  */
 final class TripMapFactory
 {
-    // Fond de carte CARTO "Voyager" : plus doux et lisible que le fond OpenStreetMap par defaut
-    private const TILES_URL         = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-    private const TILES_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+    // Fond de carte OpenStreetMap France : gratuit, sans cle API, noms de lieux en francais.
+    // (Les fonds CARTO demandent maintenant une cle API.)
+    private const TILES_URL         = 'https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png';
+    private const TILES_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> France';
 
     public function create(Trip $trip): ?Map
     {
@@ -42,7 +43,7 @@ final class TripMapFactory
                 tileLayer: new TileLayer(
                     url: self::TILES_URL,
                     attribution: self::TILES_ATTRIBUTION,
-                    options: ['maxZoom' => 19, 'subdomains' => 'abcd'],
+                    options: ['maxZoom' => 19, 'subdomains' => 'abc'],
                 ),
             ))
             // Lu par le JavaScript pour tracer la route
