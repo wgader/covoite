@@ -1,0 +1,77 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Laisser un avis — Covoite{% endblock %}
+
+{% block body %}
+<div class="max-w-lg mx-auto px-6 py-10">
+
+    <a href="{{ path('app_account') }}"
+       class="inline-flex items-center gap-1.5 text-sm text-brand/50 hover:text-brand mb-6 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Retour au compte
+    </a>
+
+    <h1 class="text-2xl font-extrabold text-brand mb-1">Laisser un avis</h1>
+    <p class="text-sm text-brand/50 mb-8">
+        Trajet
+        <span class="font-semibold text-brand">{{ trip.departureCity }} → {{ trip.arrivalCity }}</span>
+        du {{ trip.departureAt|date('d/m/Y') }}
+    </p>
+
+    {# Carte de la personne notée #}
+    <div class="bg-cream border border-black/8 rounded-2xl px-5 py-4 mb-6 flex items-center gap-4">
+        {% if target.avatar %}
+            <img src="{{ target.avatar }}" alt="{{ target.firstName }}"
+                 class="w-12 h-12 rounded-full object-cover shrink-0">
+        {% else %}
+            <div class="w-12 h-12 rounded-full bg-brand/10 flex items-center justify-center shrink-0">
+                <span class="text-brand font-bold text-lg">{{ target.firstName|first|upper }}</span>
+            </div>
+        {% endif %}
+        <div>
+            <p class="font-bold text-brand">{{ target.firstName }} {{ target.lastName|first }}.</p>
+            <p class="text-xs text-brand/50">
+                {{ type.value == 'driver' ? 'Conducteur' : 'Passager' }}
+            </p>
+        </div>
+    </div>
+
+    {# Formulaire #}
+    {{ form_start(reviewForm, {attr: {class: 'space-y-6'}}) }}
+
+        {# Note — étoiles custom #}
+        <div>
+            <p class="text-sm font-semibold text-brand mb-3">Votre note</p>
+            <div class="flex flex-col gap-2">
+                {% for child in reviewForm.rating %}
+                <label class="flex items-center gap-3 cursor-pointer group">
+                    {{ form_widget(child, {attr: {class: 'accent-lime w-4 h-4 cursor-pointer'}}) }}
+                    <span class="text-sm text-brand group-hover:font-semibold transition">
+                        {{ child.vars.label }}
+                    </span>
+                </label>
+                {% endfor %}
+            </div>
+            {{ form_errors(reviewForm.rating) }}
+        </div>
+
+        {# Commentaire #}
+        <div>
+            {{ form_label(reviewForm.comment, null, {label_attr: {class: 'block text-sm font-semibold text-brand mb-2'}}) }}
+            {{ form_widget(reviewForm.comment, {attr: {
+                class: 'w-full border border-black/10 rounded-xl px-4 py-3 text-sm text-brand bg-white placeholder-brand/30 focus:outline-none focus:ring-2 focus:ring-lime/50 resize-none'
+            }}) }}
+            {{ form_errors(reviewForm.comment) }}
+        </div>
+
+        <button type="submit"
+                class="w-full bg-lime hover:bg-lime/90 text-brand font-bold py-3 rounded-xl text-sm transition">
+            Publier mon avis
+        </button>
+
+    {{ form_end(reviewForm) }}
+
+</div>
+{% endblock %}

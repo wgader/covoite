@@ -1,0 +1,162 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Réserver — {{ trip.departureCity }} → {{ trip.arrivalCity }}{% endblock %}
+
+{% block body %}
+<div class="max-w-4xl mx-auto px-6 py-10">
+
+    {# Retour #}
+    <a href="{{ path('app_trip_show', {id: trip.id}) }}"
+       class="inline-flex items-center gap-1 text-sm text-brand/50 hover:text-brand transition mb-6">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Retour au trajet
+    </a>
+
+    <h1 class="text-2xl font-extrabold text-brand mb-8">Confirmer votre réservation</h1>
+
+    <div class="grid lg:grid-cols-5 gap-6">
+
+        {# ── FORMULAIRE ─────────────────────────────────────────── #}
+        <div class="lg:col-span-3">
+            {{ form_start(bookingForm, {attr: {class: 'flex flex-col gap-5'}}) }}
+
+                {# Nombre de places #}
+                <div class="bg-white rounded-2xl border border-black/8 p-6">
+                    <h2 class="font-bold text-brand mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-lime" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                        Nombre de places
+                    </h2>
+                    {{ form_widget(bookingForm.seats, {attr: {
+                        class: 'w-full border border-black/10 rounded-xl px-4 py-3 text-brand text-sm bg-cream focus:outline-none focus:ring-2 focus:ring-lime/40',
+                        id: 'seats-select'
+                    }}) }}
+                </div>
+
+                {# Message #}
+                <div class="bg-white rounded-2xl border border-black/8 p-6">
+                    <h2 class="font-bold text-brand mb-1 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-lime" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                        </svg>
+                        Message au conducteur
+                    </h2>
+                    <p class="text-xs text-brand/40 mb-3">Optionnel — précisez votre point de rendez-vous, vos bagages…</p>
+                    {{ form_widget(bookingForm.message, {attr: {
+                        class: 'w-full border border-black/10 rounded-xl px-4 py-3 text-brand text-sm bg-cream focus:outline-none focus:ring-2 focus:ring-lime/40 resize-none',
+                        placeholder: 'Ex : Je serai devant la gare avec un sac à dos…',
+                        rows: 3
+                    }}) }}
+                </div>
+
+                {# Infos passager #}
+                <div class="bg-cream rounded-2xl border border-black/8 p-5">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-brand flex items-center justify-center shrink-0">
+                            <span class="text-sm font-bold text-lime">
+                                {{ app.user.firstName|first|upper }}{{ app.user.lastName|first|upper }}
+                            </span>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-brand">{{ app.user.firstName }} {{ app.user.lastName }}</p>
+                            <p class="text-xs text-brand/40">{{ app.user.email }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit"
+                        class="w-full bg-lime hover:bg-lime/90 text-brand font-extrabold py-4 rounded-2xl text-sm transition flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Envoyer ma demande de réservation
+                </button>
+
+                <p class="text-center text-xs text-brand/30">
+                    La réservation sera confirmée par le conducteur.
+                </p>
+
+            {{ form_end(bookingForm) }}
+        </div>
+
+        {# ── RÉCAP TRAJET ────────────────────────────────────────── #}
+        <div class="lg:col-span-2">
+            <div class="bg-white rounded-2xl border border-black/8 p-6 sticky top-24">
+                <h2 class="font-bold text-brand mb-5 text-sm uppercase tracking-widest text-brand/40">Récapitulatif</h2>
+
+                {# Itinéraire #}
+                <div class="flex flex-col gap-0 mb-5">
+                    <div class="flex items-center gap-3 py-2">
+                        <div class="flex flex-col items-center w-4">
+                            <span class="w-2.5 h-2.5 rounded-full bg-lime"></span>
+                            <span class="w-px h-8 bg-brand/15"></span>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-brand">{{ trip.departureCity }}</p>
+                            <p class="text-xs text-brand/40">{{ trip.departureAt|date('d/m/Y à H\\hi') }}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 py-2">
+                        <div class="flex flex-col items-center w-4">
+                            <span class="w-2.5 h-2.5 rounded-full bg-brand"></span>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-brand">{{ trip.arrivalCity }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {# Conducteur #}
+                <div class="flex items-center gap-3 py-4 border-t border-black/6">
+                    <div class="w-9 h-9 rounded-full bg-brand/10 flex items-center justify-center shrink-0">
+                        <span class="text-xs font-bold text-brand">{{ trip.driver.firstName|first|upper }}</span>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-brand">{{ trip.driver.firstName }}</p>
+                        <p class="text-xs text-brand/40">Conducteur</p>
+                    </div>
+                </div>
+
+                {# Tarif #}
+                <div class="py-4 border-t border-black/6 flex flex-col gap-2 text-sm" id="price-recap">
+                    <div class="flex justify-between text-brand/60">
+                        <span>Prix par place</span>
+                        <span class="font-semibold text-brand">{{ trip.price }} €</span>
+                    </div>
+                    <div class="flex justify-between text-brand/60">
+                        <span>Places sélectionnées</span>
+                        <span class="font-semibold text-brand" id="recap-seats">1</span>
+                    </div>
+                    <div class="flex justify-between font-extrabold text-brand text-base pt-2 border-t border-black/6 mt-1">
+                        <span>Total</span>
+                        <span id="recap-total">{{ trip.price }} €</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+(function () {
+    const pricePerSeat = {{ trip.price }};
+    const sel = document.getElementById('seats-select');
+    const recapSeats = document.getElementById('recap-seats');
+    const recapTotal = document.getElementById('recap-total');
+
+    function update() {
+        const seats = parseInt(sel.value, 10);
+        recapSeats.textContent = seats;
+        recapTotal.textContent = (pricePerSeat * seats).toFixed(2).replace('.', ',') + ' €';
+    }
+
+    sel.addEventListener('change', update);
+    update();
+})();
+</script>
+{% endblock %}

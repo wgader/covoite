@@ -1,0 +1,87 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Modifier mon profil — Covoite{% endblock %}
+
+{% block body %}
+<div class="max-w-2xl mx-auto px-6 py-10">
+
+    <div class="flex items-center gap-4 mb-8">
+        <a href="{{ path('app_account') }}"
+           class="w-9 h-9 rounded-xl bg-white border border-black/8 flex items-center justify-center hover:border-brand/20 transition">
+            <svg class="w-4 h-4 text-brand" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </a>
+        <div>
+            <h1 class="text-2xl font-extrabold text-brand">Modifier mon profil</h1>
+            <p class="text-sm text-brand/40 mt-0.5">Ces informations sont visibles par les autres membres.</p>
+        </div>
+    </div>
+
+    {{ form_start(editForm, {attr: {class: 'space-y-6', novalidate: 'novalidate'}}) }}
+
+        {# INFOS DE BASE #}
+        <div class="bg-white border border-black/6 rounded-2xl p-6">
+            <h2 class="font-bold text-brand mb-5 text-sm uppercase tracking-wide">Informations</h2>
+            <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                    {{ form_label(editForm.firstName, null, {label_attr: {class: 'block text-xs font-semibold text-brand/50 uppercase tracking-wide mb-1.5'}}) }}
+                    {{ form_widget(editForm.firstName, {attr: {class: 'w-full bg-cream border border-black/8 rounded-xl px-4 py-3 text-sm text-brand outline-none focus:border-lime transition'}}) }}
+                    {{ form_errors(editForm.firstName) }}
+                </div>
+                <div>
+                    {{ form_label(editForm.lastName, null, {label_attr: {class: 'block text-xs font-semibold text-brand/50 uppercase tracking-wide mb-1.5'}}) }}
+                    {{ form_widget(editForm.lastName, {attr: {class: 'w-full bg-cream border border-black/8 rounded-xl px-4 py-3 text-sm text-brand outline-none focus:border-lime transition'}}) }}
+                    {{ form_errors(editForm.lastName) }}
+                </div>
+            </div>
+            <div class="mt-4">
+                {{ form_label(editForm.dateOfBirth, null, {label_attr: {class: 'block text-xs font-semibold text-brand/50 uppercase tracking-wide mb-1.5'}}) }}
+                {{ form_widget(editForm.dateOfBirth, {attr: {class: 'bg-cream border border-black/8 rounded-xl px-4 py-3 text-sm text-brand outline-none focus:border-lime transition'}}) }}
+                {{ form_errors(editForm.dateOfBirth) }}
+            </div>
+            <div class="mt-4">
+                {{ form_label(editForm.bio, null, {label_attr: {class: 'block text-xs font-semibold text-brand/50 uppercase tracking-wide mb-1.5'}}) }}
+                {{ form_widget(editForm.bio, {attr: {class: 'w-full bg-cream border border-black/8 rounded-xl px-4 py-3 text-sm text-brand outline-none focus:border-lime transition resize-none'}}) }}
+                {{ form_errors(editForm.bio) }}
+            </div>
+            <div class="mt-4">
+                {{ form_label(editForm.avatar, null, {label_attr: {class: 'block text-xs font-semibold text-brand/50 uppercase tracking-wide mb-1.5'}}) }}
+                {{ form_widget(editForm.avatar, {attr: {class: 'w-full bg-cream border border-black/8 rounded-xl px-4 py-3 text-sm text-brand outline-none focus:border-lime transition'}}) }}
+                {{ form_errors(editForm.avatar) }}
+            </div>
+        </div>
+
+        {# PREFERENCES #}
+        <div class="bg-white border border-black/6 rounded-2xl p-6">
+            <h2 class="font-bold text-brand mb-5 text-sm uppercase tracking-wide">Preferences en voiture</h2>
+            <div class="grid sm:grid-cols-3 gap-4">
+                <div>
+                    {{ form_label(editForm.musicGenre, null, {label_attr: {class: 'block text-xs font-semibold text-brand/50 uppercase tracking-wide mb-1.5'}}) }}
+                    {{ form_widget(editForm.musicGenre, {attr: {class: 'w-full bg-cream border border-black/8 rounded-xl px-4 py-3 text-sm text-brand outline-none focus:border-lime transition cursor-pointer'}}) }}
+                </div>
+                <div>
+                    {{ form_label(editForm.smokingAllowed, null, {label_attr: {class: 'block text-xs font-semibold text-brand/50 uppercase tracking-wide mb-1.5'}}) }}
+                    {{ form_widget(editForm.smokingAllowed, {attr: {class: 'w-full bg-cream border border-black/8 rounded-xl px-4 py-3 text-sm text-brand outline-none focus:border-lime transition cursor-pointer'}}) }}
+                </div>
+                <div>
+                    {{ form_label(editForm.petsAllowed, null, {label_attr: {class: 'block text-xs font-semibold text-brand/50 uppercase tracking-wide mb-1.5'}}) }}
+                    {{ form_widget(editForm.petsAllowed, {attr: {class: 'w-full bg-cream border border-black/8 rounded-xl px-4 py-3 text-sm text-brand outline-none focus:border-lime transition cursor-pointer'}}) }}
+                </div>
+            </div>
+        </div>
+
+        <div class="flex gap-3 justify-end">
+            <a href="{{ path('app_account') }}"
+               class="px-6 py-3 rounded-xl border-2 border-brand text-brand font-semibold text-sm hover:bg-brand hover:text-cream transition">
+                Annuler
+            </a>
+            <button type="submit"
+                    class="px-6 py-3 rounded-xl bg-lime hover:bg-lime-hover text-brand font-semibold text-sm transition">
+                Enregistrer les modifications
+            </button>
+        </div>
+
+    {{ form_end(editForm) }}
+</div>
+{% endblock %}

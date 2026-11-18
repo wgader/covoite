@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Docker: Up (dev)",
+      "type": "shell",
+      "command": "docker compose -f compose.yaml -f compose.override.yaml up -d --build",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "new" }
+    },
+    {
+      "label": "Docker: Down",
+      "type": "shell",
+      "command": "docker compose -f compose.yaml -f compose.override.yaml down",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "new" }
+    },
+    {
+      "label": "Docker: Logs",
+      "type": "shell",
+      "command": "docker compose -f compose.yaml -f compose.override.yaml logs -f",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "test",
+      "presentation": { "reveal": "always", "panel": "new" }
+    }
+  ]
+}
