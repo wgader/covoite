@@ -86,6 +86,11 @@
         L     = e.detail.L;
         route = e.detail.extra.route;
         bounds = L.latLngBounds([route.from, route.to]);
+
+        // Fond Esri (sans cle) : on ajoute la couche des noms de villes et de routes par-dessus
+        if (e.detail.extra.labels) {
+            L.tileLayer(e.detail.extra.labels, { maxZoom: 16, pane: 'shadowPane' }).addTo(map);
+        }
         if (!modal.hidden) focus(pending);
 
         const info = modal.querySelector('[data-route-info]');
