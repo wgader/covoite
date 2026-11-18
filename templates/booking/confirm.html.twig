@@ -1,0 +1,78 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Réservation confirmée{% endblock %}
+
+{% block body %}
+<div class="max-w-2xl mx-auto px-6 py-16 text-center">
+
+    {# Icône succès #}
+    <div class="w-20 h-20 rounded-full bg-lime/20 flex items-center justify-center mx-auto mb-6">
+        <svg class="w-10 h-10 text-lime" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+        </svg>
+    </div>
+
+    <h1 class="text-3xl font-extrabold text-brand mb-2">Réservation confirmée !</h1>
+    <p class="text-brand/50 mb-10">Votre demande a bien été envoyée au conducteur.</p>
+
+    {# Carte récap #}
+    <div class="bg-white rounded-2xl border border-black/8 p-6 text-left mb-8">
+
+        <div class="flex items-center gap-4 mb-6 pb-6 border-b border-black/8">
+            <div class="w-12 h-12 rounded-full bg-brand/10 flex items-center justify-center font-bold text-brand text-sm">
+                {{ booking.trip.driver.firstName|first|upper }}{{ booking.trip.driver.lastName|first|upper }}
+            </div>
+            <div>
+                <p class="font-semibold text-brand">{{ booking.trip.driver.firstName }} {{ booking.trip.driver.lastName|first }}.</p>
+                <p class="text-sm text-brand/40">Conducteur</p>
+            </div>
+            <div class="ml-auto text-right">
+                <p class="text-xs text-brand/40 mb-0.5">Statut</p>
+                <span class="inline-block bg-amber-100 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+                    En attente
+                </span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div>
+                <p class="text-xs text-brand/40 mb-1">Départ</p>
+                <p class="font-bold text-brand">{{ booking.trip.departureCity }}</p>
+                <p class="text-sm text-brand/50">{{ booking.trip.departureAddress }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-brand/40 mb-1">Arrivée</p>
+                <p class="font-bold text-brand">{{ booking.trip.arrivalCity }}</p>
+                <p class="text-sm text-brand/50">{{ booking.trip.arrivalAddress }}</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4 pt-4 border-t border-black/8">
+            <div>
+                <p class="text-xs text-brand/40 mb-1">Date</p>
+                <p class="font-semibold text-brand text-sm">{{ booking.trip.departureAt|date('d/m/Y') }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-brand/40 mb-1">Places</p>
+                <p class="font-semibold text-brand text-sm">{{ booking.seats }} place{{ booking.seats > 1 ? 's' : '' }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-brand/40 mb-1">Total</p>
+                <p class="font-bold text-brand">{{ booking.amount }}€</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <a href="{{ path('app_search') }}"
+           class="inline-flex items-center justify-center gap-2 bg-lime hover:bg-lime/90 text-brand font-bold px-6 py-3 rounded-xl transition text-sm">
+            Trouver un autre trajet
+        </a>
+        <a href="{{ path('app_home') }}"
+           class="inline-flex items-center justify-center gap-2 border border-brand/20 hover:border-brand/40 text-brand font-semibold px-6 py-3 rounded-xl transition text-sm">
+            Retour à l'accueil
+        </a>
+    </div>
+
+</div>
+{% endblock %}

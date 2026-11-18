@@ -1,0 +1,219 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ from ?: 'Départ' }} → {{ to ?: 'Arrivée' }} — Covoite{% endblock %}
+
+{% block body %}
+
+{# BARRE DE RECHERCHE #}
+<div class="bg-white border-b border-black/8 sticky top-16 z-40 py-4">
+    <div class="max-w-7xl mx-auto px-6">
+        <form method="GET" action="{{ path('app_search') }}"
+              class="grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
+
+            <div class="flex flex-col gap-1">
+                <label class="text-[10px] font-semibold uppercase tracking-widest text-brand/40">Départ</label>
+                <div class="flex items-center gap-2 border border-black/10 rounded-xl px-3 py-2.5">
+                    <svg class="w-4 h-4 text-lime flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                    </svg>
+                    <input type="text" name="from" value="{{ from }}" placeholder="Départ"
+                           class="w-full text-sm text-brand outline-none bg-transparent placeholder:text-brand/30">
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-1">
+                <label class="text-[10px] font-semibold uppercase tracking-widest text-brand/40">Arrivée</label>
+                <div class="flex items-center gap-2 border border-black/10 rounded-xl px-3 py-2.5">
+                    <svg class="w-4 h-4 text-brand/40 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                    </svg>
+                    <input type="text" name="to" value="{{ to }}" placeholder="Arrivée"
+                           class="w-full text-sm text-brand outline-none bg-transparent placeholder:text-brand/30">
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-1">
+                <label class="text-[10px] font-semibold uppercase tracking-widest text-brand/40">Date</label>
+                <div class="flex items-center gap-2 border border-black/10 rounded-xl px-3 py-2.5">
+                    <svg class="w-4 h-4 text-brand/40 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+                    </svg>
+                    <input type="date" name="date" value="{{ date }}"
+                           class="w-full text-sm text-brand outline-none bg-transparent">
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-1">
+                <label class="text-[10px] font-semibold uppercase tracking-widest text-brand/40">Passagers</label>
+                <div class="flex items-center gap-2 border border-black/10 rounded-xl px-3 py-2.5">
+                    <svg class="w-4 h-4 text-brand/40 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
+                    </svg>
+                    <select name="seats" class="w-full text-sm text-brand outline-none bg-transparent">
+                        {% for i in 1..8 %}
+                            <option value="{{ i }}" {{ seats == i ? 'selected' : '' }}>
+                                {{ i }} {{ i == 1 ? 'passager' : 'passagers' }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit"
+                    class="bg-lime hover:bg-lime-hover text-brand font-bold py-2.5 rounded-xl transition text-sm flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                </svg>
+                Rechercher
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="max-w-7xl mx-auto px-6 py-8">
+
+    {# EN-TÊTE RÉSULTATS #}
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-xl font-bold text-brand">
+                {% if total > 0 %}
+                    {{ total }} trajet{{ total > 1 ? 's' : '' }} trouvé{{ total > 1 ? 's' : '' }}
+                {% else %}
+                    Aucun trajet trouvé
+                {% endif %}
+            </h1>
+            {% if from or to %}
+                <p class="text-sm text-brand/50 mt-0.5">
+                    {{ from ?: '…' }} → {{ to ?: '…' }}
+                    {% if date %} • {{ date|date('d/m/Y') }}{% endif %}
+                </p>
+            {% endif %}
+        </div>
+        <a href="{{ path('app_home') }}"
+           class="text-sm text-brand/50 hover:text-brand flex items-center gap-1 transition">
+            ← Modifier ma recherche
+        </a>
+    </div>
+
+    {% if trips|length == 0 %}
+        <div class="text-center py-20">
+            <svg class="w-14 h-14 mx-auto mb-4 text-brand/20" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <p class="font-semibold text-brand/50">Aucun trajet disponible pour ces critères.</p>
+            <p class="text-sm mt-1 text-brand/30">Essayez une date différente ou une ville voisine.</p>
+        </div>
+    {% else %}
+
+    <div class="flex flex-col gap-4">
+        {% for trip in trips %}
+        <a href="{{ path('app_trip_show', {id: trip.id}) }}"
+           class="bg-white border border-black/8 rounded-2xl p-5 hover:shadow-md hover:border-lime/40 transition block">
+            <div class="flex items-center gap-5">
+
+                {# AVATAR CONDUCTEUR #}
+                <div class="flex-shrink-0">
+                    {% if trip.driver.avatar %}
+                        <img src="{{ trip.driver.avatar }}" alt=""
+                             class="w-14 h-14 rounded-full object-cover border-2 border-cream">
+                    {% else %}
+                        <div class="w-14 h-14 rounded-full bg-brand/10 flex items-center justify-center text-brand font-bold text-lg">
+                            {{ trip.driver.firstName|first|upper }}{{ trip.driver.lastName|first|upper }}
+                        </div>
+                    {% endif %}
+                </div>
+
+                {# INFOS CONDUCTEUR #}
+                <div class="w-36 flex-shrink-0">
+                    <p class="font-semibold text-brand text-sm">
+                        {{ trip.driver.firstName }} {{ trip.driver.lastName|first }}.
+                    </p>
+                    <p class="text-xs text-brand/50 mt-0.5">
+                        {{ trip.driver.tripsCompleted }} trajet{{ trip.driver.tripsCompleted != 1 ? 's' : '' }}
+                    </p>
+                    <div class="flex gap-2 mt-1.5">
+                        {% if not trip.driver.smokingAllowed %}
+                            <span title="Non-fumeur" class="text-brand/30">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M4.93 4.93l14.14 14.14"/>
+                                    <path d="M7 15h3m3 0h4"/>
+                                </svg>
+                            </span>
+                        {% endif %}
+                        {% if trip.driver.petsAllowed %}
+                            <span title="Animaux acceptés" class="text-brand/30">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M4.5 11a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zm15 0a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM8 7.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zm8 0a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zm-4 3c-3.5 0-7 2-7 5.5v.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.5c0-3.5-3.5-5.5-7-5.5z"/>
+                                </svg>
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {# ITINÉRAIRE #}
+                <div class="flex-1">
+                    <div class="flex items-center gap-3">
+                        <div class="flex flex-col items-center">
+                            <div class="w-2.5 h-2.5 rounded-full bg-lime"></div>
+                            <div class="w-px h-8 bg-brand/20"></div>
+                            <div class="w-2.5 h-2.5 rounded-full bg-brand"></div>
+                        </div>
+                        <div class="flex flex-col justify-between h-12">
+                            <div class="flex items-baseline gap-2">
+                                <span class="font-bold text-brand text-sm">{{ trip.departureAt|date('H:i') }}</span>
+                                <span class="text-brand/60 text-sm">{{ trip.departureCity }}</span>
+                            </div>
+                            <div class="flex items-baseline gap-2">
+                                <span class="font-bold text-brand/30 text-sm">–</span>
+                                <span class="text-brand/60 text-sm">{{ trip.arrivalCity }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {# TAGS VÉHICULE #}
+                <div class="hidden md:flex flex-col gap-1.5 w-36">
+                    <span class="text-xs bg-lime/15 text-brand px-2.5 py-1 rounded-full font-medium w-fit">
+                        Trajet direct
+                    </span>
+                    {% if trip.vehicle %}
+                        <span class="text-xs text-brand/50 flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1l2-3h10l2 3h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2"/>
+                                <circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/>
+                            </svg>
+                            {{ trip.vehicle.brand }} {{ trip.vehicle.model }}
+                        </span>
+                    {% endif %}
+                </div>
+
+                {# PRIX + PLACES #}
+                <div class="flex-shrink-0 text-right">
+                    <div class="text-2xl font-extrabold text-brand">{{ trip.price }}€</div>
+                    <div class="text-xs text-brand/40 mt-0.5">par personne</div>
+                    <div class="flex items-center justify-end gap-0.5 mt-2">
+                        {% for i in 1..trip.availableSeats %}
+                            <svg class="w-4 h-4 text-lime" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
+                            </svg>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                {# BOUTON #}
+                <div class="flex-shrink-0 ml-2">
+                    <span class="bg-lime hover:bg-lime-hover text-brand font-bold px-5 py-2.5 rounded-xl text-sm transition inline-block">
+                        Réserver
+                    </span>
+                </div>
+
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+
+    {% endif %}
+</div>
+
+{% endblock %}

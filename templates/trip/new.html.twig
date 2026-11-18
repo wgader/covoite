@@ -1,0 +1,171 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Publier un trajet — Covoite{% endblock %}
+
+{% block body %}
+<div class="max-w-2xl mx-auto px-6 py-10">
+
+    <a href="{{ path('app_account') }}"
+       class="inline-flex items-center gap-1 text-sm text-brand/50 hover:text-brand transition mb-6">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Retour à mon espace
+    </a>
+
+    <h1 class="text-2xl font-extrabold text-brand mb-1">Publier un trajet</h1>
+    <p class="text-sm text-brand/40 mb-8">Renseignez les informations de votre trajet.</p>
+
+    {{ form_start(tripForm, {attr: {class: 'flex flex-col gap-5', novalidate: 'novalidate'}}) }}
+
+        {# ── DÉPART ─────────────────────────────────────────────── #}
+        <div class="bg-white rounded-2xl border border-black/8 p-6">
+            <h2 class="font-bold text-brand mb-4 text-sm uppercase tracking-widest text-brand/40">Départ</h2>
+            <div class="flex flex-col gap-3">
+                {{ form_widget(tripForm.departureAddress, {attr: {
+                    class: 'w-full px-4 py-3 rounded-xl border border-black/10 bg-cream text-sm text-brand placeholder:text-brand/30 focus:outline-none focus:ring-2 focus:ring-lime/40',
+                    id: 'dep-address'
+                }}) }}
+                <div class="grid grid-cols-2 gap-3">
+                    {{ form_widget(tripForm.departureCity, {attr: {
+                        class: 'px-4 py-3 rounded-xl border border-black/10 bg-cream text-sm text-brand placeholder:text-brand/30 focus:outline-none focus:ring-2 focus:ring-lime/40'
+                    }}) }}
+                    {{ form_widget(tripForm.departurePostalCode, {attr: {
+                        class: 'px-4 py-3 rounded-xl border border-black/10 bg-cream text-sm text-brand placeholder:text-brand/30 focus:outline-none focus:ring-2 focus:ring-lime/40'
+                    }}) }}
+                </div>
+                {{ form_widget(tripForm.departureLat) }}
+                {{ form_widget(tripForm.departureLng) }}
+            </div>
+        </div>
+
+        {# ── ARRIVÉE ─────────────────────────────────────────────── #}
+        <div class="bg-white rounded-2xl border border-black/8 p-6">
+            <h2 class="font-bold text-brand mb-4 text-sm uppercase tracking-widest text-brand/40">Arrivée</h2>
+            <div class="flex flex-col gap-3">
+                {{ form_widget(tripForm.arrivalAddress, {attr: {
+                    class: 'w-full px-4 py-3 rounded-xl border border-black/10 bg-cream text-sm text-brand placeholder:text-brand/30 focus:outline-none focus:ring-2 focus:ring-lime/40',
+                    id: 'arr-address'
+                }}) }}
+                <div class="grid grid-cols-2 gap-3">
+                    {{ form_widget(tripForm.arrivalCity, {attr: {
+                        class: 'px-4 py-3 rounded-xl border border-black/10 bg-cream text-sm text-brand placeholder:text-brand/30 focus:outline-none focus:ring-2 focus:ring-lime/40'
+                    }}) }}
+                    {{ form_widget(tripForm.arrivalPostalCode, {attr: {
+                        class: 'px-4 py-3 rounded-xl border border-black/10 bg-cream text-sm text-brand placeholder:text-brand/30 focus:outline-none focus:ring-2 focus:ring-lime/40'
+                    }}) }}
+                </div>
+                {{ form_widget(tripForm.arrivalLat) }}
+                {{ form_widget(tripForm.arrivalLng) }}
+            </div>
+        </div>
+
+        {# ── DATE & HEURE ────────────────────────────────────────── #}
+        <div class="bg-white rounded-2xl border border-black/8 p-6">
+            <h2 class="font-bold text-brand mb-4 text-sm uppercase tracking-widest text-brand/40">Date & heure de départ</h2>
+            {{ form_widget(tripForm.departureAt, {attr: {
+                class: 'w-full px-4 py-3 rounded-xl border border-black/10 bg-cream text-sm text-brand focus:outline-none focus:ring-2 focus:ring-lime/40'
+            }}) }}
+        </div>
+
+        {# ── TARIF & PLACES ──────────────────────────────────────── #}
+        <div class="bg-white rounded-2xl border border-black/8 p-6">
+            <h2 class="font-bold text-brand mb-4 text-sm uppercase tracking-widest text-brand/40">Tarif & places</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs text-brand/50 mb-1.5 font-semibold">Prix par place (€)</label>
+                    {{ form_widget(tripForm.price, {attr: {
+                        class: 'w-full px-4 py-3 rounded-xl border border-black/10 bg-cream text-sm text-brand placeholder:text-brand/30 focus:outline-none focus:ring-2 focus:ring-lime/40'
+                    }}) }}
+                </div>
+                <div>
+                    <label class="block text-xs text-brand/50 mb-1.5 font-semibold">Places disponibles</label>
+                    {{ form_widget(tripForm.availableSeats, {attr: {
+                        class: 'w-full px-4 py-3 rounded-xl border border-black/10 bg-cream text-sm text-brand focus:outline-none focus:ring-2 focus:ring-lime/40'
+                    }}) }}
+                </div>
+            </div>
+        </div>
+
+        {# ── OPTIONS ─────────────────────────────────────────────── #}
+        <div class="bg-white rounded-2xl border border-black/8 p-6">
+            <h2 class="font-bold text-brand mb-4 text-sm uppercase tracking-widest text-brand/40">Options</h2>
+            <div class="flex flex-col gap-4">
+
+                {% if tripForm.vehicle is defined %}
+                    <div>
+                        <label class="block text-xs text-brand/50 mb-1.5 font-semibold">Véhicule</label>
+                        {{ form_widget(tripForm.vehicle, {attr: {
+                            class: 'w-full px-4 py-3 rounded-xl border border-black/10 bg-cream text-sm text-brand focus:outline-none focus:ring-2 focus:ring-lime/40'
+                        }}) }}
+                    </div>
+                {% endif %}
+
+                <div>
+                    <label class="block text-xs text-brand/50 mb-1.5 font-semibold">Bagages autorisés</label>
+                    {{ form_widget(tripForm.luggageAllowed, {attr: {
+                        class: 'w-full px-4 py-3 rounded-xl border border-black/10 bg-cream text-sm text-brand focus:outline-none focus:ring-2 focus:ring-lime/40'
+                    }}) }}
+                </div>
+
+                <div>
+                    <label class="block text-xs text-brand/50 mb-1.5 font-semibold">Tolérance de retard (minutes)</label>
+                    {{ form_widget(tripForm.delayMinutes, {attr: {
+                        class: 'w-full px-4 py-3 rounded-xl border border-black/10 bg-cream text-sm text-brand placeholder:text-brand/30 focus:outline-none focus:ring-2 focus:ring-lime/40'
+                    }}) }}
+                </div>
+
+                <label class="flex items-center gap-3 cursor-pointer select-none">
+                    {{ form_widget(tripForm.avoidHighway, {attr: {class: 'w-4 h-4 accent-lime rounded'}}) }}
+                    <span class="text-sm text-brand font-medium">Éviter les autoroutes</span>
+                </label>
+
+                <div>
+                    <label class="block text-xs text-brand/50 mb-1.5 font-semibold">Message pour les passagers (optionnel)</label>
+                    {{ form_widget(tripForm.bio, {attr: {
+                        class: 'w-full px-4 py-3 rounded-xl border border-black/10 bg-cream text-sm text-brand placeholder:text-brand/30 focus:outline-none focus:ring-2 focus:ring-lime/40 resize-none'
+                    }}) }}
+                </div>
+
+            </div>
+        </div>
+
+        {# ── SUBMIT ──────────────────────────────────────────────── #}
+        <button type="submit"
+                class="w-full bg-lime hover:bg-lime/90 text-brand font-extrabold text-base py-4 rounded-2xl transition">
+            Publier mon trajet
+        </button>
+
+    {{ form_end(tripForm) }}
+
+</div>
+
+{# Géocodage automatique via Nominatim pour remplir les champs lat/lng #}
+<script>
+async function geocode(address) {
+    if (!address || address.length < 5) return null;
+    try {
+        const r = await fetch(
+            'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(address),
+            { headers: { 'Accept-Language': 'fr' } }
+        );
+        const data = await r.json();
+        return data[0] ?? null;
+    } catch { return null; }
+}
+
+async function fillLatLng(addressInputId, latInputName, lngInputName) {
+    const addr = document.getElementById(addressInputId);
+    if (!addr) return;
+    addr.addEventListener('blur', async () => {
+        const result = await geocode(addr.value);
+        if (!result) return;
+        document.querySelector('[name="' + latInputName + '"]').value = result.lat;
+        document.querySelector('[name="' + lngInputName + '"]').value = result.lon;
+    });
+}
+
+fillLatLng('dep-address', 'trip_form[departureLat]', 'trip_form[departureLng]');
+fillLatLng('arr-address', 'trip_form[arrivalLat]', 'trip_form[arrivalLng]');
+</script>
+{% endblock %}

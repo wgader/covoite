@@ -1,0 +1,81 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ title }} — Covoite{% endblock %}
+
+{% block body %}
+<div class="max-w-2xl mx-auto px-6 py-10">
+
+    <div class="flex items-center gap-4 mb-8">
+        <a href="{{ path('app_vehicle_index') }}"
+           class="w-9 h-9 rounded-xl bg-white border border-black/8 flex items-center justify-center hover:border-brand/20 transition">
+            <svg class="w-4 h-4 text-brand" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </a>
+        <h1 class="text-2xl font-extrabold text-brand">{{ title }}</h1>
+    </div>
+
+    {{ form_start(vehicleForm, {attr: {class: 'space-y-6', novalidate: 'novalidate'}}) }}
+
+        {# INFOS VEHICULE #}
+        <div class="bg-white border border-black/6 rounded-2xl p-6">
+            <h2 class="font-bold text-brand mb-5 text-sm uppercase tracking-wide">Informations</h2>
+            <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                    {{ form_label(vehicleForm.brand, null, {label_attr: {class: 'block text-xs font-semibold text-brand/50 uppercase tracking-wide mb-1.5'}}) }}
+                    {{ form_widget(vehicleForm.brand, {attr: {class: 'w-full bg-cream border border-black/8 rounded-xl px-4 py-3 text-sm text-brand outline-none focus:border-lime transition'}}) }}
+                    {{ form_errors(vehicleForm.brand) }}
+                </div>
+                <div>
+                    {{ form_label(vehicleForm.model, null, {label_attr: {class: 'block text-xs font-semibold text-brand/50 uppercase tracking-wide mb-1.5'}}) }}
+                    {{ form_widget(vehicleForm.model, {attr: {class: 'w-full bg-cream border border-black/8 rounded-xl px-4 py-3 text-sm text-brand outline-none focus:border-lime transition'}}) }}
+                    {{ form_errors(vehicleForm.model) }}
+                </div>
+                <div>
+                    {{ form_label(vehicleForm.color, null, {label_attr: {class: 'block text-xs font-semibold text-brand/50 uppercase tracking-wide mb-1.5'}}) }}
+                    {{ form_widget(vehicleForm.color, {attr: {class: 'w-full bg-cream border border-black/8 rounded-xl px-4 py-3 text-sm text-brand outline-none focus:border-lime transition'}}) }}
+                    {{ form_errors(vehicleForm.color) }}
+                </div>
+                <div>
+                    {{ form_label(vehicleForm.seats, null, {label_attr: {class: 'block text-xs font-semibold text-brand/50 uppercase tracking-wide mb-1.5'}}) }}
+                    {{ form_widget(vehicleForm.seats, {attr: {class: 'w-full bg-cream border border-black/8 rounded-xl px-4 py-3 text-sm text-brand outline-none focus:border-lime transition'}}) }}
+                    {% if vehicleForm.seats.vars.help is defined %}
+                        <p class="text-xs text-brand/40 mt-1">{{ vehicleForm.seats.vars.help }}</p>
+                    {% endif %}
+                    {{ form_errors(vehicleForm.seats) }}
+                </div>
+                <div class="sm:col-span-2">
+                    {{ form_label(vehicleForm.trunkSize, null, {label_attr: {class: 'block text-xs font-semibold text-brand/50 uppercase tracking-wide mb-1.5'}}) }}
+                    {{ form_widget(vehicleForm.trunkSize, {attr: {class: 'bg-cream border border-black/8 rounded-xl px-4 py-3 text-sm text-brand outline-none focus:border-lime transition cursor-pointer'}}) }}
+                    {{ form_errors(vehicleForm.trunkSize) }}
+                </div>
+            </div>
+        </div>
+
+        {# OPTIONS #}
+        <div class="bg-white border border-black/6 rounded-2xl p-6">
+            <h2 class="font-bold text-brand mb-5 text-sm uppercase tracking-wide">Options</h2>
+            <div class="space-y-3">
+                {% for field in [vehicleForm.isElectric, vehicleForm.hasAc, vehicleForm.hasUsb, vehicleForm.isDefault] %}
+                    <label class="flex items-center gap-3 cursor-pointer group">
+                        {{ form_widget(field, {attr: {class: 'w-4 h-4 accent-lime cursor-pointer'}}) }}
+                        <span class="text-sm text-brand font-medium">{{ form_label(field) }}</span>
+                    </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="flex gap-3 justify-end">
+            <a href="{{ path('app_vehicle_index') }}"
+               class="px-6 py-3 rounded-xl border-2 border-brand text-brand font-semibold text-sm hover:bg-brand hover:text-cream transition">
+                Annuler
+            </a>
+            <button type="submit"
+                    class="px-6 py-3 rounded-xl bg-lime hover:bg-lime-hover text-brand font-semibold text-sm transition">
+                {% if vehicle %}Enregistrer{% else %}Ajouter le vehicule{% endif %}
+            </button>
+        </div>
+
+    {{ form_end(vehicleForm) }}
+</div>
+{% endblock %}

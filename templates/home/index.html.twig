@@ -1,0 +1,303 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Covoite — Covoiturage local & responsable{% endblock %}
+
+{% block body %}
+
+{# ── HERO ──────────────────────────────────────────────────────────────── #}
+<section class="bg-cream overflow-hidden">
+    <div class="max-w-6xl mx-auto px-6 py-20 lg:py-28 grid lg:grid-cols-2 gap-16 items-center">
+
+        <div>
+            <p class="text-xs font-semibold tracking-widest uppercase text-brand/40 mb-5">
+                Le covoiturage, plus proche de vous.
+            </p>
+            <h1 class="text-4xl lg:text-5xl font-extrabold text-brand leading-[1.1] mb-5">
+                Trouvez votre trajet,<br>partagez la route.
+            </h1>
+            <p class="text-brand/60 text-lg leading-relaxed mb-10">
+                Covoite met en relation des personnes qui vont dans la même direction.
+                Un trajet plus simple, plus économique et plus humain.
+            </p>
+
+            {# SEARCH BAR #}
+            <form action="{{ path('app_search') }}" method="GET"
+                  class="bg-white rounded-2xl shadow-sm border border-black/6 p-2 flex flex-wrap items-center gap-1">
+
+                <div class="flex items-center gap-2 flex-1 min-w-[110px] px-3 py-2.5">
+                    <svg class="w-4 h-4 text-lime shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                    </svg>
+                    <input type="text" name="from" placeholder="Départ"
+                           class="w-full text-sm text-brand placeholder:text-brand/30 outline-none bg-transparent">
+                </div>
+
+                <div class="w-px h-7 bg-brand/10 hidden sm:block"></div>
+
+                <div class="flex items-center gap-2 flex-1 min-w-[110px] px-3 py-2.5">
+                    <svg class="w-4 h-4 text-brand/25 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                    </svg>
+                    <input type="text" name="to" placeholder="Arrivée"
+                           class="w-full text-sm text-brand placeholder:text-brand/30 outline-none bg-transparent">
+                </div>
+
+                <div class="w-px h-7 bg-brand/10 hidden sm:block"></div>
+
+                <div class="flex items-center gap-2 px-3 py-2.5">
+                    <svg class="w-4 h-4 text-brand/25 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="3" y="4" width="18" height="18" rx="2"/>
+                        <line x1="16" y1="2" x2="16" y2="6"/>
+                        <line x1="8" y1="2" x2="8" y2="6"/>
+                        <line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                    <input type="date" name="date"
+                           class="text-sm text-brand/50 outline-none bg-transparent cursor-pointer">
+                </div>
+
+                <div class="w-px h-7 bg-brand/10 hidden sm:block"></div>
+
+                <div class="flex items-center gap-2 px-3 py-2.5">
+                    <svg class="w-4 h-4 text-brand/25 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
+                    </svg>
+                    <select name="seats" class="text-sm text-brand/70 outline-none bg-transparent cursor-pointer pr-1">
+                        {% for i in 1..4 %}
+                            <option value="{{ i }}">{{ i }} passager{{ i > 1 ? 's' : '' }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit"
+                        class="flex items-center gap-2 bg-lime hover:bg-lime-hover text-brand font-semibold text-sm px-5 py-2.5 rounded-xl transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                    </svg>
+                    Rechercher
+                </button>
+            </form>
+
+            {# MINI-FEATURES (comme dans le mockup) #}
+            <div class="flex flex-wrap items-start gap-x-7 gap-y-4 mt-8 pt-8 border-t border-brand/8">
+
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 bg-lime/15 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5 text-lime" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+                            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-brand leading-none">Moins de CO₂</p>
+                        <p class="text-xs text-brand/40 mt-0.5">pour la planète</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 bg-lime/15 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5 text-lime" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                            <line x1="12" y1="1" x2="12" y2="23"/>
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-brand leading-none">Moins cher</p>
+                        <p class="text-xs text-brand/40 mt-0.5">pour ton budget</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 bg-lime/15 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5 text-lime" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-brand leading-none">Plus de lien</p>
+                        <p class="text-xs text-brand/40 mt-0.5">sur la route</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        {# Illustration voiture #}
+        <div class="hidden lg:flex items-center justify-center">
+            <div class="relative w-full max-w-md">
+                <div class="absolute inset-0 bg-lime/10 rounded-3xl -rotate-2"></div>
+                <svg viewBox="0 0 480 280" class="relative" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="40" y="222" width="400" height="8" rx="4" fill="#0F2D24" fill-opacity="0.07"/>
+                    <rect x="170" y="224" width="38" height="4" rx="2" fill="white" fill-opacity="0.6"/>
+                    <rect x="232" y="224" width="38" height="4" rx="2" fill="white" fill-opacity="0.6"/>
+                    <rect x="80" y="158" width="320" height="68" rx="14" fill="#0F2D24"/>
+                    <path d="M158 158 L192 114 L292 114 L322 158 Z" fill="#0F2D24"/>
+                    <rect x="200" y="122" width="38" height="30" rx="5" fill="#8DC63F" fill-opacity="0.45"/>
+                    <rect x="244" y="122" width="38" height="30" rx="5" fill="#8DC63F" fill-opacity="0.45"/>
+                    <circle cx="152" cy="226" r="28" fill="#1a1a1a"/>
+                    <circle cx="152" cy="226" r="14" fill="#8DC63F"/>
+                    <circle cx="328" cy="226" r="28" fill="#1a1a1a"/>
+                    <circle cx="328" cy="226" r="14" fill="#8DC63F"/>
+                    <rect x="374" y="180" width="26" height="14" rx="7" fill="#8DC63F"/>
+                    <rect x="80" y="180" width="20" height="14" rx="7" fill="#8DC63F" fill-opacity="0.5"/>
+                    <line x1="240" y1="160" x2="240" y2="220" stroke="white" stroke-opacity="0.08" stroke-width="2"/>
+                </svg>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+{# ── TRAJETS DISPONIBLES ────────────────────────────────────────────────── #}
+{% if trips is not empty %}
+<section class="bg-white py-16">
+    <div class="max-w-6xl mx-auto px-6">
+        <div class="flex items-end justify-between mb-8">
+            <div>
+                <h2 class="text-2xl font-extrabold text-brand mb-1">Trajets disponibles</h2>
+                <p class="text-sm text-brand/40">Les prochains départs près de chez vous.</p>
+            </div>
+            <a href="{{ path('app_search') }}"
+               class="text-sm font-semibold text-lime hover:underline flex items-center gap-1">
+                Voir tous les trajets
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                </svg>
+            </a>
+        </div>
+
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for trip in trips %}
+                <a href="{{ path('app_trip_show', {id: trip.id}) }}"
+                   class="group bg-cream hover:bg-white border border-black/6 hover:border-lime/40 hover:shadow-md rounded-2xl p-5 transition-all duration-200 flex flex-col gap-4">
+
+                    <div>
+                        <div class="flex items-center gap-2 mb-3">
+                            <div class="flex flex-col items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-lime"></span>
+                                <span class="w-px h-6 bg-brand/15"></span>
+                                <span class="w-2 h-2 rounded-full bg-brand"></span>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <span class="text-sm font-bold text-brand leading-none">{{ trip.departureCity }}</span>
+                                <span class="text-sm font-bold text-brand leading-none">{{ trip.arrivalCity }}</span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-3 text-xs text-brand/40">
+                            <span class="flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                                {{ trip.departureAt|date('d/m/Y') }}
+                            </span>
+                            <span class="flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                {{ trip.departureAt|date('H\\hi') }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between pt-3 border-t border-brand/8">
+                        <div class="flex items-center gap-2">
+                            {% if trip.driver.avatar %}
+                                <img src="{{ trip.driver.avatar }}" alt=""
+                                     class="w-7 h-7 rounded-full object-cover flex-shrink-0">
+                            {% else %}
+                                <div class="w-7 h-7 rounded-full bg-brand flex items-center justify-center shrink-0">
+                                    <span class="text-xs font-bold text-lime">
+                                        {{ trip.driver.firstName|first|upper }}
+                                    </span>
+                                </div>
+                            {% endif %}
+                            <div>
+                                <p class="text-xs font-semibold text-brand leading-none">{{ trip.driver.firstName }}</p>
+                                <p class="text-xs text-brand/40 mt-0.5">{{ trip.availableSeats }} place{{ trip.availableSeats > 1 ? 's' : '' }} dispo</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-lg font-extrabold text-brand">{{ trip.price }} €</span>
+                            <p class="text-xs text-brand/30">par place</p>
+                        </div>
+                    </div>
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+{# ── COMMENT ÇA MARCHE ─────────────────────────────────────────────────── #}
+<section class="bg-cream py-20">
+    <div class="max-w-5xl mx-auto px-6">
+        <h2 class="text-2xl font-extrabold text-brand text-center mb-2">Comment ça marche ?</h2>
+        <p class="text-brand/40 text-sm text-center mb-14">Trois étapes, c'est tout.</p>
+        <div class="grid md:grid-cols-3 gap-10">
+            <div class="text-center">
+                <div class="w-14 h-14 bg-brand rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <span class="text-cream font-extrabold text-lg leading-none">1</span>
+                </div>
+                <h3 class="font-bold text-brand mb-2">Recherchez</h3>
+                <p class="text-sm text-brand/50 leading-relaxed">Entrez votre ville de départ, d'arrivée et la date souhaitée.</p>
+            </div>
+            <div class="text-center">
+                <div class="w-14 h-14 bg-brand rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <span class="text-cream font-extrabold text-lg leading-none">2</span>
+                </div>
+                <h3 class="font-bold text-brand mb-2">Réservez</h3>
+                <p class="text-sm text-brand/50 leading-relaxed">Choisissez le trajet qui vous convient et réservez votre place en quelques clics.</p>
+            </div>
+            <div class="text-center">
+                <div class="w-14 h-14 bg-brand rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <span class="text-cream font-extrabold text-lg leading-none">3</span>
+                </div>
+                <h3 class="font-bold text-brand mb-2">Voyagez</h3>
+                <p class="text-sm text-brand/50 leading-relaxed">Retrouvez votre conducteur au point de départ et profitez du trajet.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+{# ── STATS ─────────────────────────────────────────────────────────────── #}
+<section class="bg-brand py-16">
+    <div class="max-w-4xl mx-auto px-6 grid grid-cols-3 gap-6 text-center">
+        <div>
+            <p class="text-4xl font-extrabold text-lime">{{ tripCount }}</p>
+            <p class="text-cream/50 text-sm mt-1.5">Trajets publiés</p>
+        </div>
+        <div>
+            <p class="text-4xl font-extrabold text-lime">{{ userCount }}</p>
+            <p class="text-cream/50 text-sm mt-1.5">Membres</p>
+        </div>
+        <div>
+            <p class="text-4xl font-extrabold text-lime">{{ bookingCount }}</p>
+            <p class="text-cream/50 text-sm mt-1.5">Réservations</p>
+        </div>
+    </div>
+</section>
+
+{# ── CTA ───────────────────────────────────────────────────────────────── #}
+{% if not app.user %}
+<section class="bg-cream py-20">
+    <div class="max-w-2xl mx-auto px-6 text-center">
+        <h2 class="text-2xl font-extrabold text-brand mb-3">Prêt à covoiturer ?</h2>
+        <p class="text-brand/50 mb-8 text-sm">Créez votre compte gratuitement et commencez dès aujourd'hui.</p>
+        <div class="flex flex-col sm:flex-row gap-3 justify-center">
+            <a href="{{ path('app_register') }}"
+               class="bg-lime hover:bg-lime-hover text-brand font-bold px-8 py-3.5 rounded-xl transition text-sm">
+                S'inscrire — c'est gratuit
+            </a>
+            <a href="{{ path('app_search') }}"
+               class="border-2 border-brand text-brand font-bold px-8 py-3.5 rounded-xl hover:bg-brand hover:text-cream transition text-sm">
+                Voir les trajets
+            </a>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+{% endblock %}

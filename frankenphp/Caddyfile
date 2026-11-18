@@ -33,6 +33,8 @@
 		anonymous
 		# Enable the subscription API (double-check that it's what you want)
 		subscriptions
+		# Compatibility mode for JWT directives
+		protocol_version_compatibility 8
 		# Extra directives
 		{$MERCURE_EXTRA_DIRECTIVES}
 	}
