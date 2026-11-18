@@ -1,0 +1,17 @@
+<script>
+    // Filtre la liste des conversations pendant qu'on tape un nom
+    (() => {
+        const input = document.querySelector('[data-conv-search]');
+        if (!input) return;
+        input.addEventListener('input', () => {
+            const q = input.value.trim().toLowerCase();
+            let visible = 0;
+            document.querySelectorAll('[data-conv-item]').forEach((el) => {
+                const show = el.dataset.name.includes(q);
+                el.hidden = !show;
+                if (show) visible++;
+            });
+            document.querySelector('[data-conv-empty]').hidden = visible > 0;
+        });
+    })();
+</script>

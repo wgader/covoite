@@ -1,0 +1,172 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Ma reservation — {{ trip.departureCity }} → {{ trip.arrivalCity }} — Covoite{% endblock %}
+
+{% block body %}
+{% set driver = trip.driver %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+
+    <a href="{{ path('app_rides', {onglet: bucket}) }}"
+       class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand/50 hover:text-brand transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Mes trajets
+    </a>
+
+    <div class="flex items-center justify-between gap-3 mt-4">
+        <h1 class="text-3xl font-extrabold text-brand tracking-tight">Ma reservation</h1>
+        {% if bucket == 'annules' %}
+            <span class="text-xs font-bold px-3 py-1.5 rounded-full bg-red-50 text-red-600">Annulee</span>
+        {% elseif bucket == 'passes' %}
+            <span class="text-xs font-bold px-3 py-1.5 rounded-full bg-cream border border-black/10 text-brand/60">
+                {{ booking.status.value == 'pending' ? 'Sans reponse' : 'Termine' }}
+            </span>
+        {% elseif booking.status.value == 'pending' %}
+            <span class="text-xs font-bold px-3 py-1.5 rounded-full bg-amber-50 text-amber-700">En attente</span>
+        {% else %}
+            <span class="text-xs font-bold px-3 py-1.5 rounded-full bg-lime-soft text-brand">Confirmee</span>
+        {% endif %}
+    </div>
+
+    {# ── BANDEAU D'ETAT ────────────────────────────────────── #}
+    {% if isUpcoming and booking.status.value == 'pending' %}
+        <div class="mt-5 bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+            <span class="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2" stroke-linecap="round"/></svg>
+            </span>
+            <p class="text-sm text-amber-900">{{ driver.firstName }} n'a pas encore repondu a votre demande. Vous serez prevenu(e) des que c'est le cas.</p>
+        </div>
+    {% elseif isUpcoming %}
+        <div class="mt-5 bg-lime-soft border border-lime/40 rounded-2xl p-4 flex items-start gap-3">
+            <span class="w-9 h-9 rounded-full bg-lime text-brand flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <p class="text-sm text-brand">C'est confirme ! Retrouvez {{ driver.firstName }} au point de depart quelques minutes avant l'heure.</p>
+        </div>
+    {% elseif bucket == 'annules' %}
+        <div class="mt-5 bg-white border border-black/5 rounded-2xl p-4 text-sm text-brand/60">
+            {% if trip.status.value == 'cancelled' %}
+                Le conducteur a annule ce trajet.
+            {% elseif booking.cancelledBy and booking.cancelledBy.value == 'driver' %}
+                Le conducteur n'a pas pu vous prendre sur ce trajet.
+            {% else %}
+                Vous avez annule cette reservation{% if booking.cancelledAt %} le {{ booking.cancelledAt|date('d/m/Y') }}{% endif %}.
+            {% endif %}
+            {% if booking.cancelledReason %}
+                <p class="mt-2 text-brand/80 bg-cream rounded-xl px-3.5 py-2.5">"{{ booking.cancelledReason }}"</p>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    {# ── ITINERAIRE ────────────────────────────────────────── #}
+    <section class="mt-6 border-t border-black/10 pt-6">
+        <p class="text-lg font-extrabold text-brand first-letter:uppercase">{{ trip.departureAt|date_fr('long_year') }}</p>
+        <div class="flex gap-4 mt-4">
+            <div class="w-12 shrink-0 pt-0.5">
+                <p class="text-sm font-bold text-brand">{{ trip.departureAt|date('H:i') }}</p>
+            </div>
+            <div class="flex flex-col items-center pt-1.5">
+                <span class="w-3 h-3 rounded-full border-2 border-brand bg-white"></span>
+                <span class="w-0.5 flex-1 bg-brand my-1"></span>
+                <span class="w-3 h-3 rounded-full border-2 border-brand bg-white"></span>
+            </div>
+            <div class="flex flex-col gap-6 min-w-0">
+                <div>
+                    <p class="text-sm font-bold text-brand flex items-center gap-1 -my-1">{{ trip.departureCity }} {% include 'trip/_map_button.html.twig' with {focus: 'from'} %}</p>
+                    <p class="text-xs text-brand/50 mt-0.5">{{ trip.departureAddress }}</p>
+                </div>
+                <div>
+                    <p class="text-sm font-bold text-brand flex items-center gap-1 -my-1">{{ trip.arrivalCity }} {% include 'trip/_map_button.html.twig' with {focus: 'to'} %}</p>
+                    <p class="text-xs text-brand/50 mt-0.5">{{ trip.arrivalAddress }}</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {# ── CONDUCTEUR ────────────────────────────────────────── #}
+    <section class="mt-6 border-t border-black/10">
+        <a href="{{ path('app_profile_show', {id: driver.id}) }}" class="flex items-center gap-3 py-4 group">
+            {% if driver.avatar %}
+                <img src="{{ driver.avatar }}" alt="" class="w-12 h-12 rounded-full object-cover">
+            {% else %}
+                <span class="w-12 h-12 rounded-full bg-brand text-lime font-bold flex items-center justify-center">{{ driver.firstName|first|upper }}</span>
+            {% endif %}
+            <span class="flex-1 min-w-0">
+                <span class="block text-sm font-bold text-brand group-hover:underline">{{ driver.firstName }} {{ driver.lastName|first }}.</span>
+                <span class="block text-xs text-brand/50">
+                    {% if avgRating %}<span class="text-amber-500">★</span> {{ avgRating }}/5 · {{ reviewCount }} avis · {% endif %}
+                    {{ driver.tripsCompleted }} trajet{{ driver.tripsCompleted > 1 ? 's' }}
+                </span>
+            </span>
+            <svg class="w-5 h-5 text-brand/40" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+
+        {% if trip.vehicle %}
+            <div class="flex items-center gap-3 pb-4 text-sm text-brand/70">
+                <svg class="w-6 h-6 text-brand/40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 17h14M5 17a2 2 0 1 0 4 0M15 17a2 2 0 1 0 4 0M3 17v-4l2-5a2 2 0 0 1 1.9-1.4h10.2A2 2 0 0 1 19 8l2 5v4"/></svg>
+                {{ trip.vehicle.brand }} {{ trip.vehicle.model }} · {{ trip.vehicle.color }}
+            </div>
+        {% endif %}
+
+        {% if bucket != 'annules' %}
+            <a href="{{ path('app_message_thread', {id: driver.id, trip: trip.id}) }}"
+               class="flex items-center justify-center gap-2 w-full border border-brand/15 hover:border-brand/40 text-brand font-semibold text-sm py-3 rounded-full transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Contacter {{ driver.firstName }}
+            </a>
+        {% endif %}
+    </section>
+
+    {# ── PAIEMENT ──────────────────────────────────────────── #}
+    <section class="mt-6 bg-white rounded-2xl border border-black/5 shadow-card p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-bold text-brand">Prix total</p>
+                <p class="text-xs text-brand/50 mt-0.5">{{ booking.seats }} place{{ booking.seats > 1 ? 's' }} × {{ trip.price|number_format(2, ',', ' ') }} &euro;</p>
+            </div>
+            <p class="text-2xl font-extrabold text-brand">{{ booking.amount|number_format(2, ',', ' ') }} &euro;</p>
+        </div>
+        {% if booking.message %}
+            <div class="mt-4 pt-4 border-t border-black/5">
+                <p class="text-xs text-brand/50 mb-1.5">Votre message au conducteur</p>
+                <p class="text-sm text-brand/80 bg-cream rounded-xl px-3.5 py-2.5">{{ booking.message }}</p>
+            </div>
+        {% endif %}
+    </section>
+
+    {# ── ACTIONS ───────────────────────────────────────────── #}
+    <section class="mt-6 bg-white rounded-2xl border border-black/5 shadow-card divide-y divide-black/5 overflow-hidden">
+        {% if booking.status.value == 'completed' and not hasReviewed %}
+            <a href="{{ path('app_review_create', {id: booking.id}) }}" class="flex items-center justify-between px-5 py-4 hover:bg-cream/60 transition">
+                <span>
+                    <span class="block text-sm font-bold text-brand">Laisser un avis a {{ driver.firstName }}</span>
+                    <span class="block text-xs text-brand/50 mt-0.5">Ca aide toute la communaute</span>
+                </span>
+                <svg class="w-5 h-5 text-brand/40" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+        {% elseif booking.status.value == 'completed' %}
+            <div class="px-5 py-4 text-sm text-brand/50">Merci, votre avis a ete enregistre.</div>
+        {% endif %}
+
+        <a href="{{ path('app_trip_show', {id: trip.id}) }}" class="flex items-center justify-between px-5 py-4 hover:bg-cream/60 transition">
+            <span class="text-sm font-bold text-brand">Voir l'annonce du trajet</span>
+            <svg class="w-5 h-5 text-brand/40" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+
+        {% if isUpcoming %}
+            <form method="post" action="{{ path('app_booking_cancel', {id: booking.id}) }}"
+                  data-confirm="Votre place sera liberee et {{ driver.firstName }} sera prevenu(e)."
+                  data-confirm-title="Annuler votre reservation ?"
+                  data-confirm-button="Oui, annuler"
+                  data-confirm-tone="danger"
+                  data-confirm-reason="Un mot pour le conducteur (optionnel)">
+                <input type="hidden" name="_token" value="{{ csrf_token('cancel-booking-' ~ booking.id) }}">
+                <button class="w-full flex items-center justify-between px-5 py-4 hover:bg-red-50/60 transition text-left">
+                    <span class="text-sm font-bold text-red-600">Annuler ma reservation</span>
+                    <svg class="w-5 h-5 text-red-300" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+            </form>
+        {% endif %}
+    </section>
+</div>
+{% include 'trip/_route_map.html.twig' %}
+{% endblock %}

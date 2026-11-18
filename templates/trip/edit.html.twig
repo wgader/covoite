@@ -1,142 +1,16 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Modifier le trajet — Covoite{% endblock %}
+{% block title %}Modifier le trajet {{ trip.departureCity }} → {{ trip.arrivalCity }} — Covoite{% endblock %}
+
+{# L'assistant a sa propre barre en bas : pas de footer #}
+{% block footer %}{% endblock %}
 
 {% block body %}
-<div class="max-w-2xl mx-auto px-6 py-8">
-
-    <a href="{{ path('app_trip_show', {id: trip.id}) }}"
-       class="text-sm text-brand/50 hover:text-brand flex items-center gap-1 mb-6 transition">
-        ← Retour au trajet
-    </a>
-
-    <div class="bg-white rounded-2xl border border-black/8 p-8">
-
-        <h1 class="text-2xl font-extrabold text-brand mb-1">Modifier votre trajet</h1>
-        <p class="text-sm text-brand/40 mb-8">
-            {{ trip.departureCity }} → {{ trip.arrivalCity }}
-            · {{ trip.departureAt|date('d/m/Y') }}
-        </p>
-
-        {% if confirmedSeats > 0 %}
-            <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-6 text-sm text-amber-800">
-                <strong>Attention :</strong> vous avez {{ confirmedSeats }} passager(s) confirmé(s).
-                Les places disponibles ne peuvent pas descendre en dessous de {{ confirmedSeats }}.
-            </div>
-        {% endif %}
-
-        {{ form_start(tripForm, {'attr': {'class': 'flex flex-col gap-5', 'novalidate': 'novalidate'}}) }}
-
-            {# TRAJET #}
-            <div class="pb-5 border-b border-black/6">
-                <p class="text-xs font-semibold uppercase tracking-widest text-brand/40 mb-4">Itinéraire</p>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label for="{{ tripForm.departureCity.vars.id }}" class="block text-xs font-semibold text-brand mb-1.5">Ville de départ</label>
-                        {{ form_widget(tripForm.departureCity, {'attr': {'class': 'w-full border border-black/10 rounded-xl px-4 py-3 text-brand text-sm focus:outline-none focus:ring-2 focus:ring-lime/40 bg-cream/50', 'placeholder': 'ex. Paris'}}) }}
-                        {{ form_errors(tripForm.departureCity) }}
-                    </div>
-                    <div>
-                        <label for="{{ tripForm.arrivalCity.vars.id }}" class="block text-xs font-semibold text-brand mb-1.5">Ville d'arrivée</label>
-                        {{ form_widget(tripForm.arrivalCity, {'attr': {'class': 'w-full border border-black/10 rounded-xl px-4 py-3 text-brand text-sm focus:outline-none focus:ring-2 focus:ring-lime/40 bg-cream/50', 'placeholder': 'ex. Lyon'}}) }}
-                        {{ form_errors(tripForm.arrivalCity) }}
-                    </div>
-                    <div>
-                        <label for="{{ tripForm.departureAddress.vars.id }}" class="block text-xs font-semibold text-brand mb-1.5">Adresse de départ</label>
-                        {{ form_widget(tripForm.departureAddress, {'attr': {'class': 'w-full border border-black/10 rounded-xl px-4 py-3 text-brand text-sm focus:outline-none focus:ring-2 focus:ring-lime/40 bg-cream/50', 'placeholder': 'ex. Place de la République'}}) }}
-                        {{ form_errors(tripForm.departureAddress) }}
-                    </div>
-                    <div>
-                        <label for="{{ tripForm.arrivalAddress.vars.id }}" class="block text-xs font-semibold text-brand mb-1.5">Adresse d'arrivée</label>
-                        {{ form_widget(tripForm.arrivalAddress, {'attr': {'class': 'w-full border border-black/10 rounded-xl px-4 py-3 text-brand text-sm focus:outline-none focus:ring-2 focus:ring-lime/40 bg-cream/50', 'placeholder': 'ex. Gare Part-Dieu'}}) }}
-                        {{ form_errors(tripForm.arrivalAddress) }}
-                    </div>
-                </div>
-            </div>
-
-            {# DATE ET HEURE #}
-            <div class="pb-5 border-b border-black/6">
-                <p class="text-xs font-semibold uppercase tracking-widest text-brand/40 mb-4">Date et heure</p>
-                <div>
-                    <label for="{{ tripForm.departureAt.vars.id }}" class="block text-xs font-semibold text-brand mb-1.5">Départ le</label>
-                    {{ form_widget(tripForm.departureAt, {'attr': {'class': 'w-full border border-black/10 rounded-xl px-4 py-3 text-brand text-sm focus:outline-none focus:ring-2 focus:ring-lime/40 bg-cream/50'}}) }}
-                    {{ form_errors(tripForm.departureAt) }}
-                </div>
-            </div>
-
-            {# PLACES ET PRIX #}
-            <div class="pb-5 border-b border-black/6">
-                <p class="text-xs font-semibold uppercase tracking-widest text-brand/40 mb-4">Places et tarif</p>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label for="{{ tripForm.availableSeats.vars.id }}" class="block text-xs font-semibold text-brand mb-1.5">
-                            Places disponibles
-                            {% if confirmedSeats > 0 %}<span class="text-amber-600">(min. {{ confirmedSeats }})</span>{% endif %}
-                        </label>
-                        {{ form_widget(tripForm.availableSeats, {'attr': {'class': 'w-full border border-black/10 rounded-xl px-4 py-3 text-brand text-sm focus:outline-none focus:ring-2 focus:ring-lime/40 bg-cream/50', 'min': confirmedSeats > 0 ? confirmedSeats : 1}}) }}
-                        {{ form_errors(tripForm.availableSeats) }}
-                    </div>
-                    <div>
-                        <label for="{{ tripForm.price.vars.id }}" class="block text-xs font-semibold text-brand mb-1.5">Prix par place (€)</label>
-                        {{ form_widget(tripForm.price, {'attr': {'class': 'w-full border border-black/10 rounded-xl px-4 py-3 text-brand text-sm focus:outline-none focus:ring-2 focus:ring-lime/40 bg-cream/50', 'placeholder': 'ex. 15'}}) }}
-                        {{ form_errors(tripForm.price) }}
-                    </div>
-                </div>
-            </div>
-
-            {# VÉHICULE #}
-            <div class="pb-5 border-b border-black/6">
-                <p class="text-xs font-semibold uppercase tracking-widest text-brand/40 mb-4">Véhicule</p>
-                <div>
-                    <label for="{{ tripForm.vehicle.vars.id }}" class="block text-xs font-semibold text-brand mb-1.5">Voiture utilisée</label>
-                    {{ form_widget(tripForm.vehicle, {'attr': {'class': 'w-full border border-black/10 rounded-xl px-4 py-3 text-brand text-sm focus:outline-none focus:ring-2 focus:ring-lime/40 bg-cream/50'}}) }}
-                    {{ form_errors(tripForm.vehicle) }}
-                </div>
-            </div>
-
-            {# OPTIONS #}
-            <div class="pb-5 border-b border-black/6">
-                <p class="text-xs font-semibold uppercase tracking-widest text-brand/40 mb-4">Options</p>
-                <div class="grid grid-cols-2 gap-4 mb-4">
-                    {% if tripForm.luggageAllowed is defined %}
-                    <div>
-                        <label for="{{ tripForm.luggageAllowed.vars.id }}" class="block text-xs font-semibold text-brand mb-1.5">Bagages acceptés</label>
-                        {{ form_widget(tripForm.luggageAllowed, {'attr': {'class': 'w-full border border-black/10 rounded-xl px-4 py-3 text-brand text-sm focus:outline-none focus:ring-2 focus:ring-lime/40 bg-cream/50'}}) }}
-                    </div>
-                    {% endif %}
-                </div>
-                {% if tripForm.avoidHighway is defined %}
-                <div class="flex items-center gap-3">
-                    {{ form_widget(tripForm.avoidHighway, {'attr': {'class': 'w-4 h-4 accent-lime'}}) }}
-                    <label for="{{ tripForm.avoidHighway.vars.id }}" class="text-sm text-brand font-medium">Éviter les autoroutes</label>
-                </div>
-                {% endif %}
-            </div>
-
-            {# DESCRIPTION #}
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-widest text-brand/40 mb-4">Description</p>
-                {% if tripForm.bio is defined %}
-                <div>
-                    <label for="{{ tripForm.bio.vars.id }}" class="block text-xs font-semibold text-brand mb-1.5">À propos du trajet <span class="text-brand/30">(optionnel)</span></label>
-                    {{ form_widget(tripForm.bio, {'attr': {'class': 'w-full border border-black/10 rounded-xl px-4 py-3 text-brand text-sm focus:outline-none focus:ring-2 focus:ring-lime/40 bg-cream/50 resize-none', 'rows': 3, 'placeholder': 'Précisez vos habitudes de conduite, arrêts prévus...'}}) }}
-                </div>
-                {% endif %}
-            </div>
-
-            {# BOUTONS #}
-            <div class="flex items-center justify-between gap-4 pt-2">
-                <a href="{{ path('app_trip_show', {id: trip.id}) }}"
-                   class="text-sm text-brand/50 hover:text-brand transition">
-                    Annuler
-                </a>
-                <button type="submit"
-                        class="bg-lime hover:bg-lime/90 text-brand font-bold px-8 py-3 rounded-xl transition text-sm">
-                    Enregistrer les modifications
-                </button>
-            </div>
-
-        {{ form_end(tripForm) }}
-    </div>
-</div>
+    {# En modification, l'assistant s'ouvre directement sur le recapitulatif :
+       on clique sur "Modifier" a cote de ce qu'on veut changer. #}
+    {% include 'trip/_wizard.html.twig' with {
+        mode: 'edit',
+        closeUrl: path('app_ride_driver', {id: trip.id}),
+        confirmedSeats: confirmedSeats,
+    } %}
 {% endblock %}

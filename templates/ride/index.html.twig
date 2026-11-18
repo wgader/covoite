@@ -1,0 +1,196 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mes trajets — Covoite{% endblock %}
+
+{% block body %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 py-10">
+
+    <h1 class="text-3xl sm:text-4xl font-extrabold text-brand text-center tracking-tight">Vos trajets</h1>
+
+    {# ── ONGLETS ─────────────────────────────────────────────── #}
+    {% set tabs = [
+        {key: 'a-venir', label: 'A venir'},
+        {key: 'passes',  label: 'Passes'},
+        {key: 'annules', label: 'Annules'},
+    ] %}
+    <nav class="flex justify-center gap-2 mt-7" aria-label="Filtrer mes trajets">
+        {% for t in tabs %}
+            {% set active = tab == t.key %}
+            <a href="{{ path('app_rides', {onglet: t.key}) }}"
+               {% if active %}aria-current="page"{% endif %}
+               class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold border transition
+                      {{ active ? 'bg-brand text-cream border-brand' : 'bg-white text-brand border-black/10 hover:border-brand/30' }}">
+                {{ t.label }}
+                {% if counts[t.key] > 0 %}
+                    <span class="text-[11px] min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center
+                                 {{ active ? 'bg-lime text-brand' : 'bg-cream text-brand/60' }}">
+                        {{ counts[t.key] }}
+                    </span>
+                {% endif %}
+            </a>
+        {% endfor %}
+    </nav>
+
+    {# ── STATS ────────────────────────────────────────────────── #}
+    <div class="grid grid-cols-2 bg-white rounded-2xl border border-black/5 shadow-card mt-7 divide-x divide-black/5">
+        <div class="flex items-center gap-3 p-4 sm:p-5">
+            <span class="w-11 h-11 rounded-full bg-lime-soft text-brand flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.5 6H15a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h6.5"/></svg>
+            </span>
+            <div>
+                <p class="text-xl font-extrabold text-brand leading-none">{{ completedCount }}</p>
+                <p class="text-xs text-brand/50 mt-1">Trajet{{ completedCount > 1 ? 's' }} effectue{{ completedCount > 1 ? 's' }}</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3 p-4 sm:p-5">
+            <span class="w-11 h-11 rounded-full bg-lime-soft text-brand flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg>
+            </span>
+            <div>
+                <p class="text-xl font-extrabold text-brand leading-none">{{ earnings|number_format(2, ',', ' ') }} &euro;</p>
+                <p class="text-xs text-brand/50 mt-1">Gagnes en conduisant</p>
+            </div>
+        </div>
+    </div>
+
+    {# ── LISTE ────────────────────────────────────────────────── #}
+    {% if items is empty %}
+        <div class="text-center mt-14">
+            <div class="w-20 h-20 mx-auto rounded-full bg-white border border-black/5 flex items-center justify-center text-brand/30">
+                <svg class="w-9 h-9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            </div>
+            <h2 class="text-xl font-extrabold text-brand mt-5">
+                {% if tab == 'a-venir' %}Aucun trajet a venir
+                {% elseif tab == 'passes' %}Aucun trajet passe
+                {% else %}Aucun trajet annule{% endif %}
+            </h2>
+            <p class="text-sm text-brand/50 mt-1.5">
+                {% if tab == 'a-venir' %}Reservez une place ou publiez votre propre trajet.{% else %}Rien a afficher ici pour l'instant.{% endif %}
+            </p>
+            {% if tab == 'a-venir' %}
+                <div class="flex flex-col sm:flex-row gap-2 justify-center mt-6">
+                    <a href="{{ path('app_search') }}" class="bg-lime hover:bg-lime-hover text-brand font-semibold text-sm px-6 py-3 rounded-full transition">
+                        Rechercher un trajet
+                    </a>
+                    <a href="{{ path('app_trip_new') }}" class="bg-white border border-brand/15 hover:border-brand/40 text-brand font-semibold text-sm px-6 py-3 rounded-full transition">
+                        Proposer un trajet
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="mt-6 space-y-3">
+            {% for item in items %}
+                {% set trip    = item.trip %}
+                {% set booking = item.booking %}
+                {% set isDriver = item.role == 'driver' %}
+
+                {# Libelle + couleur du statut #}
+                {% if isDriver %}
+                    {% if trip.status.value == 'cancelled' %}
+                        {% set status = {label: 'Annule', cls: 'bg-red-50 text-red-600'} %}
+                    {% elseif trip.status.value == 'completed' %}
+                        {% set status = {label: 'Termine', cls: 'bg-cream text-brand/60'} %}
+                    {% elseif item.bucket == 'passes' %}
+                        {% set status = {label: 'A cloturer', cls: 'bg-amber-50 text-amber-700'} %}
+                    {% elseif trip.status.value == 'full' %}
+                        {% set status = {label: 'Complet', cls: 'bg-brand text-cream'} %}
+                    {% else %}
+                        {% set status = {label: 'Publie', cls: 'bg-lime-soft text-brand'} %}
+                    {% endif %}
+                {% else %}
+                    {% if item.bucket == 'annules' %}
+                        {% set status = {label: 'Annulee', cls: 'bg-red-50 text-red-600'} %}
+                    {% elseif booking.status.value == 'completed' or (item.bucket == 'passes' and booking.status.value == 'confirmed') %}
+                        {% set status = {label: 'Termine', cls: 'bg-cream text-brand/60'} %}
+                    {% elseif booking.status.value == 'pending' and item.bucket == 'passes' %}
+                        {% set status = {label: 'Sans reponse', cls: 'bg-cream text-brand/60'} %}
+                    {% elseif booking.status.value == 'pending' %}
+                        {% set status = {label: 'En attente', cls: 'bg-amber-50 text-amber-700'} %}
+                    {% else %}
+                        {% set status = {label: 'Confirmee', cls: 'bg-lime-soft text-brand'} %}
+                    {% endif %}
+                {% endif %}
+
+                <a href="{{ isDriver ? path('app_ride_driver', {id: trip.id}) : path('app_ride_passenger', {id: booking.id}) }}"
+                   class="group block bg-white rounded-2xl border border-black/5 shadow-card hover:shadow-pop hover:-translate-y-0.5 transition p-5
+                          {{ item.bucket == 'annules' ? 'opacity-75' }}">
+
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="text-lg font-extrabold text-brand first-letter:uppercase">{{ trip.departureAt|date_fr }}</p>
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-[11px] font-semibold px-2.5 py-1 rounded-full border border-black/10 text-brand/60">
+                                {{ isDriver ? 'Conducteur' : 'Passager' }}
+                            </span>
+                            <span class="text-[11px] font-semibold px-2.5 py-1 rounded-full {{ status.cls }}">{{ status.label }}</span>
+                        </div>
+                    </div>
+
+                    {# Itineraire facon BlaBlaCar #}
+                    <div class="flex items-start gap-3 mt-3">
+                        <div class="w-12 shrink-0">
+                            <p class="text-sm font-bold text-brand">{{ trip.departureAt|date('H:i') }}</p>
+                        </div>
+                        <div class="flex flex-col items-center pt-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full border-2 border-brand bg-white"></span>
+                            <span class="w-0.5 h-6 bg-brand"></span>
+                            <span class="w-2.5 h-2.5 rounded-full border-2 border-brand bg-white"></span>
+                        </div>
+                        <div class="flex flex-col justify-between gap-3.5 min-w-0">
+                            <p class="text-sm font-semibold text-brand leading-none truncate">{{ trip.departureCity }}</p>
+                            <p class="text-sm font-semibold text-brand leading-none truncate">{{ trip.arrivalCity }}</p>
+                        </div>
+                        <div class="ml-auto text-right shrink-0">
+                            {% if isDriver %}
+                                <p class="text-base font-extrabold text-brand">{{ trip.price|number_format(2, ',', ' ') }} &euro;</p>
+                                <p class="text-[11px] text-brand/40">par place</p>
+                            {% else %}
+                                <p class="text-base font-extrabold text-brand">{{ booking.amount|number_format(2, ',', ' ') }} &euro;</p>
+                                <p class="text-[11px] text-brand/40">{{ booking.seats }} place{{ booking.seats > 1 ? 's' }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {# Bas de carte : passagers (conducteur) ou conducteur (passager) #}
+                    <div class="flex items-center gap-3 mt-4 pt-4 border-t border-black/5">
+                        <svg class="w-6 h-6 text-brand/40 shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 17h14M5 17a2 2 0 1 0 4 0M15 17a2 2 0 1 0 4 0M3 17v-4l2-5a2 2 0 0 1 1.9-1.4h10.2A2 2 0 0 1 19 8l2 5v4"/></svg>
+
+                        {% if isDriver %}
+                            {% if item.passengers is empty %}
+                                <span class="text-sm text-brand/50">Aucun passager pour ce trajet</span>
+                            {% else %}
+                                <div class="flex -space-x-2">
+                                    {% for p in item.passengers|slice(0, 4) %}
+                                        {% if p.avatar %}
+                                            <img src="{{ p.avatar }}" alt="{{ p.firstName }}" class="w-8 h-8 rounded-full object-cover ring-2 ring-white">
+                                        {% else %}
+                                            <span class="w-8 h-8 rounded-full bg-brand text-lime text-xs font-bold flex items-center justify-center ring-2 ring-white">{{ p.firstName|first|upper }}</span>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                                <span class="text-sm text-brand/60 whitespace-nowrap">{{ item.passengers|length }} passager{{ item.passengers|length > 1 ? 's' }}</span>
+                            {% endif %}
+
+                            {% if item.pending > 0 and item.bucket == 'a-venir' %}
+                                <span class="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-bold text-brand bg-lime px-2.5 py-1 rounded-full">
+                                    {{ item.pending }} demande{{ item.pending > 1 ? 's' }}
+                                </span>
+                            {% endif %}
+                        {% else %}
+                            {% set driver = trip.driver %}
+                            {% if driver.avatar %}
+                                <img src="{{ driver.avatar }}" alt="" class="w-8 h-8 rounded-full object-cover">
+                            {% else %}
+                                <span class="w-8 h-8 rounded-full bg-brand text-lime text-xs font-bold flex items-center justify-center">{{ driver.firstName|first|upper }}</span>
+                            {% endif %}
+                            <span class="text-sm text-brand/70">Avec <strong class="text-brand">{{ driver.firstName }}</strong></span>
+                        {% endif %}
+
+                        <svg class="w-5 h-5 text-brand/30 group-hover:text-brand group-hover:translate-x-0.5 transition shrink-0 {{ not (isDriver and item.pending > 0 and item.bucket == 'a-venir') ? 'ml-auto' }}" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </div>
+                </a>
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

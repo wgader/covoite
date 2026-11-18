@@ -18,7 +18,9 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/messages')]
 final class MessageController extends AbstractController
 {
-    // ── BOITE DE RECEPTION ────────────────────────────────────────────────
+    private const MAX_LENGTH = 2000;
+
+    // ── BOITE DE RECEPTION ─────────────────────────────────────────────────
     #[Route('', name: 'app_messages', methods: ['GET'])]
     public function inbox(MessageRepository $repo): Response
     {
@@ -26,10 +28,11 @@ final class MessageController extends AbstractController
 
         return $this->render('message/inbox.html.twig', [
             'conversations' => $repo->findConversationsFor($this->getUser()),
+            'activePartnerId' => null,
         ]);
     }
 
-    // ── THREAD AVEC UN UTILISATEUR ─────────────────────────────────────────
+    // ── DISCUSSION AVEC UN UTILISATEUR ─────────────────────────────────────
     #[Route('/avec/{id}', name: 'app_message_thread', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]
     public function thread(
         User $partner,
@@ -46,32 +49,29 @@ final class MessageController extends AbstractController
             return $this->redirectToRoute('app_messages');
         }
 
-        // Trouver ou creer la conversation entre les deux utilisateurs
+        // Trouver la conversation entre nous deux, ou la creer
         $conversation = $repo->findConversationBetween($me, $partner);
 
         if (!$conversation) {
+            $now          = new \DateTimeImmutable();
             $conversation = new Conversation();
             $conversation->setType(ConversationType::Direct);
-            $conversation->setCreatedAt(new \DateTimeImmutable());
+            $conversation->setCreatedAt($now);
 
-            $cpMe = new ConversationParticipant();
-            $cpMe->setUser($me);
-            $cpMe->setConversation($conversation);
-            $cpMe->setJoinedAt(new \DateTimeImmutable());
-
-            $cpPartner = new ConversationParticipant();
-            $cpPartner->setUser($partner);
-            $cpPartner->setConversation($conversation);
-            $cpPartner->setJoinedAt(new \DateTimeImmutable());
+            foreach ([$me, $partner] as $user) {
+                $cp = new ConversationParticipant();
+                $cp->setUser($user);
+                $cp->setConversation($conversation);
+                $cp->setJoinedAt($now);
+                $conversation->addParticipant($cp);
+                $em->persist($cp);
+            }
 
             $em->persist($conversation);
-            $em->persist($cpMe);
-            $em->persist($cpPartner);
             $em->flush();
         }
 
-        // Marquer la conversation comme lue pour moi
-        $myCp = null;
+        $myCp      = null;
         $partnerCp = null;
         foreach ($conversation->getParticipants() as $cp) {
             if ($cp->getUser()->getId() === $me->getId()) {
@@ -81,27 +81,28 @@ final class MessageController extends AbstractController
             }
         }
 
-        if ($myCp) {
-            $myCp->setLastReadAt(new \DateTimeImmutable());
-            $em->flush();
-        }
-
-        // Envoi d'un message
+        // ── Envoi d'un message ──
         if ($request->isMethod('POST')) {
-            $content = trim($request->request->get('body', ''));
-            $token   = $request->request->get('_token');
+            $back    = $this->redirectToRoute('app_message_thread', ['id' => $partner->getId()]);
+            $content = trim($request->request->getString('body'));
 
-            if (!$this->isCsrfTokenValid('send-message', $token)) {
-                $this->addFlash('error', 'Token invalide. Reessayez.');
-                return $this->redirectToRoute('app_message_thread', ['id' => $partner->getId()]);
+            if (!$this->isCsrfTokenValid('send-message', $request->request->getString('_token'))) {
+                $this->addFlash('error', 'Session expiree, reessayez.');
+
+                return $back;
             }
 
-            if (strlen($content) < 5) {
-                $this->addFlash('error', 'Le message est trop court (5 caracteres minimum).');
-                return $this->redirectToRoute('app_message_thread', ['id' => $partner->getId()]);
+            if ($content === '') {
+                return $back;
             }
 
-            // Rattacher le trajet a la conversation si c'est le premier message avec contexte
+            if (mb_strlen($content) > self::MAX_LENGTH) {
+                $this->addFlash('error', 'Message trop long (' . self::MAX_LENGTH . ' caracteres maximum).');
+
+                return $back;
+            }
+
+            // Si on ecrit depuis un trajet, on rattache ce trajet a la conversation
             $tripId = $request->request->getInt('trip_id');
             if ($tripId > 0 && $conversation->getTrip() === null) {
                 $trip = $em->find(Trip::class, $tripId);
@@ -115,63 +116,71 @@ final class MessageController extends AbstractController
             $msg->setConversation($conversation);
             $msg->setContent($content);
             $msg->setSentAt(new \DateTimeImmutable());
-
             $em->persist($msg);
 
-            // Mettre a jour mon lastReadAt apres envoi
-            if ($myCp) {
-                $myCp->setLastReadAt(new \DateTimeImmutable());
-            }
-
+            $myCp?->setLastReadAt(new \DateTimeImmutable());
             $em->flush();
 
-            return $this->redirectToRoute('app_message_thread', ['id' => $partner->getId()]);
+            return $back;
         }
 
-        // Contexte trajet (depuis la page d'un trajet : ?trip=X)
-        $tripId = $request->query->getInt('trip');
-        $trip   = ($tripId > 0 && $conversation->getTrip() === null)
-            ? $em->find(Trip::class, $tripId)
-            : $conversation->getTrip();
+        // ── Affichage : j'ouvre la conversation = je l'ai lue ──
+        if ($myCp) {
+            $myCp->setLastReadAt(new \DateTimeImmutable());
+            $em->flush();
+        }
 
-        // lastReadAt du partenaire pour savoir si mes messages ont ete lus
-        $partnerLastRead = $partnerCp ? $partnerCp->getLastReadAt() : null;
+        // Contexte trajet : celui de la conversation, sinon celui passe dans l'URL (?trip=9)
+        $trip = $conversation->getTrip();
+        if ($trip === null && $request->query->getInt('trip') > 0) {
+            $trip = $em->find(Trip::class, $request->query->getInt('trip'));
+        }
 
         return $this->render('message/thread.html.twig', [
+            'conversations'   => $repo->findConversationsFor($me),
+            'activePartnerId' => $partner->getId(),
             'partner'         => $partner,
             'thread'          => $repo->findMessagesInConversation($conversation),
             'trip'            => $trip,
-            'partnerLastRead' => $partnerLastRead,
+            'partnerLastRead' => $partnerCp?->getLastReadAt(),
+            'maxLength'       => self::MAX_LENGTH,
         ]);
     }
 
-    // ── SUPPRIMER UN MESSAGE (soft-delete) ────────────────────────────────
+    // ── SUPPRIMER UN DE MES MESSAGES (suppression "douce") ─────────────────
     #[Route('/{id}/supprimer', name: 'app_message_delete', requirements: ['id' => '\d+'], methods: ['POST'])]
-    public function delete(
-        Message $message,
-        Request $request,
-        EntityManagerInterface $em,
-    ): Response {
+    public function delete(Message $message, Request $request, EntityManagerInterface $em): Response
+    {
         $this->denyAccessUnlessGranted('ROLE_USER');
 
         /** @var User $me */
         $me = $this->getUser();
 
-        if (!$this->isCsrfTokenValid('delete-message-' . $message->getId(), $request->request->get('_token'))) {
-            $this->addFlash('error', 'Token invalide.');
-            return $this->redirectToRoute('app_messages');
-        }
-
-        // Seul l'expediteur peut supprimer son message
         if ($message->getSender()->getId() !== $me->getId()) {
             throw $this->createAccessDeniedException();
+        }
+
+        // Revenir dans la meme discussion apres suppression
+        $partnerId = null;
+        foreach ($message->getConversation()->getParticipants() as $cp) {
+            if ($cp->getUser()->getId() !== $me->getId()) {
+                $partnerId = $cp->getUser()->getId();
+            }
+        }
+        $back = $partnerId
+            ? $this->redirectToRoute('app_message_thread', ['id' => $partnerId])
+            : $this->redirectToRoute('app_messages');
+
+        if (!$this->isCsrfTokenValid('delete-message-' . $message->getId(), $request->request->getString('_token'))) {
+            $this->addFlash('error', 'Session expiree, reessayez.');
+
+            return $back;
         }
 
         $message->setDeletedAt(new \DateTimeImmutable());
         $message->setDeletedBy($me->getId());
         $em->flush();
 
-        $this->addFlash('success', 'Message supprime.');
-        return $this->redirectToRoute('app_messages');
+        return $back;
     }
 }

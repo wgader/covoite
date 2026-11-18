@@ -97,7 +97,8 @@ class Trip
     #[ORM\JoinColumn(nullable: false)]
     private ?User $driver = null;
 
-    #[ORM\ManyToOne(inversedBy: 'trips')]
+    // Pas de "inversedBy" : Vehicle n'a pas de liste de trajets (relation a sens unique)
+    #[ORM\ManyToOne]
     private ?Vehicle $vehicle = null;
 
     /**

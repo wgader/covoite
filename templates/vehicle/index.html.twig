@@ -3,85 +3,81 @@
 {% block title %}Mes vehicules — Covoite{% endblock %}
 
 {% block body %}
-<div class="max-w-3xl mx-auto px-6 py-10">
+<div class="max-w-2xl mx-auto px-4 sm:px-6 py-10">
 
-    <div class="flex items-center justify-between mb-8">
+    <a href="{{ path('app_profile_me') }}"
+       class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand/50 hover:text-brand transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Mon profil
+    </a>
+
+    <div class="flex items-end justify-between gap-4 mt-4">
         <div>
-            <h1 class="text-2xl font-extrabold text-brand">Mes vehicules</h1>
-            <p class="text-sm text-brand/40 mt-1">Gerez vos vehicules pour vos trajets.</p>
+            <h1 class="text-3xl font-extrabold text-brand tracking-tight">Mes vehicules</h1>
+            <p class="text-sm text-brand/50 mt-1">Les passagers voient le modele et la couleur pour vous reconnaitre.</p>
         </div>
-        <a href="{{ path('app_vehicle_new') }}"
-           class="flex items-center gap-2 bg-lime hover:bg-lime-hover text-brand font-semibold text-sm px-5 py-2.5 rounded-xl transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-            </svg>
-            Ajouter
-        </a>
+        {% if vehicles is not empty %}
+            <a href="{{ path('app_vehicle_new') }}"
+               class="shrink-0 inline-flex items-center gap-2 bg-lime hover:bg-lime-hover text-brand font-semibold text-sm px-5 py-2.5 rounded-full transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                Ajouter
+            </a>
+        {% endif %}
     </div>
 
     {% if vehicles is empty %}
-        <div class="bg-white border border-black/6 rounded-2xl p-16 text-center">
-            <div class="w-16 h-16 bg-cream rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <svg class="w-8 h-8 text-brand/25" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                          d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
-                </svg>
+        <div class="bg-white rounded-3xl border border-black/5 shadow-card p-10 sm:p-14 text-center mt-8">
+            <div class="w-16 h-16 bg-lime-soft rounded-2xl flex items-center justify-center mx-auto text-brand">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 17h14M5 17a2 2 0 1 0 4 0M15 17a2 2 0 1 0 4 0M3 17v-4l2-5a2 2 0 0 1 1.9-1.4h10.2A2 2 0 0 1 19 8l2 5v4"/></svg>
             </div>
-            <p class="text-brand font-semibold mb-2">Aucun vehicule</p>
-            <p class="text-sm text-brand/40 mb-6">Ajoutez un vehicule pour publier des trajets.</p>
+            <p class="text-lg font-extrabold text-brand mt-5">Aucun vehicule pour l'instant</p>
+            <p class="text-sm text-brand/50 mt-1">Ajoutez votre voiture pour publier des trajets plus rapidement.</p>
             <a href="{{ path('app_vehicle_new') }}"
-               class="inline-flex items-center gap-2 bg-lime hover:bg-lime-hover text-brand font-semibold text-sm px-5 py-2.5 rounded-xl transition">
-                Ajouter mon premier vehicule
+               class="inline-flex items-center gap-2 bg-lime hover:bg-lime-hover text-brand font-semibold text-sm px-6 py-3 rounded-full transition mt-6">
+                Ajouter mon vehicule
             </a>
         </div>
     {% else %}
-        <div class="space-y-3">
+        <div class="space-y-3 mt-8">
             {% for vehicle in vehicles %}
-                <div class="bg-white border border-black/6 {% if vehicle.default %}border-lime/40{% endif %} rounded-2xl p-5 flex items-center gap-5">
-
-                    <div class="w-12 h-12 bg-cream rounded-xl flex items-center justify-center flex-shrink-0">
-                        <svg class="w-6 h-6 text-brand/40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                  d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
-                        </svg>
+                <article class="bg-white rounded-2xl border shadow-card p-5 flex items-center gap-4 {{ vehicle.default ? 'border-lime/60' : 'border-black/5' }}">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 {{ vehicle.default ? 'bg-lime-soft text-brand' : 'bg-cream text-brand/50' }}">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 17h14M5 17a2 2 0 1 0 4 0M15 17a2 2 0 1 0 4 0M3 17v-4l2-5a2 2 0 0 1 1.9-1.4h10.2A2 2 0 0 1 19 8l2 5v4"/></svg>
                     </div>
 
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2 mb-0.5">
+                        <div class="flex flex-wrap items-center gap-2">
                             <p class="font-bold text-brand">{{ vehicle.brand }} {{ vehicle.model }}</p>
                             {% if vehicle.default %}
-                                <span class="text-xs bg-lime/20 text-brand font-semibold px-2 py-0.5 rounded-full">
-                                    Par defaut
-                                </span>
-                            {% endif %}
-                            {% if vehicle.electric %}
-                                <span class="text-xs bg-brand/10 text-brand px-2 py-0.5 rounded-full">Electrique</span>
+                                <span class="text-[11px] font-bold bg-lime text-brand px-2 py-0.5 rounded-full">Par defaut</span>
                             {% endif %}
                         </div>
-                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-brand/40">
-                            <span>{{ vehicle.color }}</span>
-                            <span>{{ vehicle.seats }} places</span>
-                            {% if vehicle.hasAc %}<span>Clim</span>{% endif %}
-                            {% if vehicle.hasUsb %}<span>USB</span>{% endif %}
-                        </div>
+                        <p class="text-xs text-brand/50 mt-1">
+                            {{ vehicle.color }} · {{ vehicle.seats }} places
+                            {%- if vehicle.electric %} · Electrique{% endif %}
+                            {%- if vehicle.hasAc %} · Clim{% endif %}
+                            {%- if vehicle.hasUsb %} · USB{% endif %}
+                        </p>
                     </div>
 
-                    <div class="flex items-center gap-2 flex-shrink-0">
-                        <a href="{{ path('app_vehicle_edit', {id: vehicle.id}) }}"
-                           class="text-xs font-semibold text-brand border border-brand/15 px-3 py-1.5 rounded-lg hover:border-brand/40 transition">
-                            Modifier
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <a href="{{ path('app_vehicle_edit', {id: vehicle.id}) }}" aria-label="Modifier {{ vehicle.brand }} {{ vehicle.model }}"
+                           class="w-9 h-9 rounded-full border border-black/10 text-brand/60 hover:text-brand hover:border-brand/30 flex items-center justify-center transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
                         </a>
-                        <form method="POST" action="{{ path('app_vehicle_delete', {id: vehicle.id}) }}"
-                              onsubmit="return confirm('Supprimer ce vehicule ?')">
-                            <input type="hidden" name="_token"
-                                   value="{{ csrf_token('delete-vehicle-' ~ vehicle.id) }}">
-                            <button type="submit"
-                                    class="text-xs font-semibold text-red-500 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 transition">
-                                Supprimer
+                        <form method="post" action="{{ path('app_vehicle_delete', {id: vehicle.id}) }}"
+                              data-confirm="{{ vehicle.brand }} {{ vehicle.model }} sera retire de votre compte."
+                              data-confirm-title="Supprimer ce vehicule ?"
+                              data-confirm-button="Supprimer"
+                              data-confirm-tone="danger">
+                            <input type="hidden" name="_token" value="{{ csrf_token('delete-vehicle-' ~ vehicle.id) }}">
+                            <button aria-label="Supprimer {{ vehicle.brand }} {{ vehicle.model }}"
+                                    class="w-9 h-9 rounded-full border border-black/10 text-brand/60 hover:text-red-600 hover:border-red-200 flex items-center justify-center transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
                             </button>
                         </form>
                     </div>
-                </div>
+                </article>
             {% endfor %}
         </div>
     {% endif %}

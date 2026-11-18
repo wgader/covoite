@@ -3,200 +3,478 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Covoite{% endblock %}</title>
+    <title>{% block title %}Covoite — Le covoiturage, plus proche de vous{% endblock %}</title>
+    <meta name="description" content="{% block meta_description %}Covoite met en relation des personnes qui vont dans la meme direction. Un trajet plus simple, plus economique et plus humain.{% endblock %}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    fontFamily: { sans: ['Sora', 'sans-serif'] },
+                    fontFamily: { sans: ['Sora', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
                     colors: {
-                        brand:   { DEFAULT: '#0F2D24', light: '#1a4a3a' },
-                        lime:    { DEFAULT: '#8DC63F', hover: '#7ab535' },
-                        cream:   '#F5F5F0',
-                        ink:     '#2C2C2C',
-                    }
+                        brand: { DEFAULT: '#0F2D24', light: '#1a4a3a' },
+                        lime:  { DEFAULT: '#8DC63F', hover: '#7ab535', soft: '#EEF6E2' },
+                        cream: '#F5F5F0',
+                        ink:   '#2C2C2C',
+                    },
+                    boxShadow: {
+                        card: '0 1px 2px rgba(15,45,36,.04), 0 8px 24px -12px rgba(15,45,36,.12)',
+                        pop:  '0 24px 60px -20px rgba(15,45,36,.35)',
+                    },
                 }
             }
         }
     </script>
+    <style>
+        [x-cloak], [hidden] { display: none !important; }
+        body { -webkit-font-smoothing: antialiased; }
+        /* Animations des modales et des toasts */
+        @keyframes modal-in   { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+        @keyframes fade-in    { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes toast-in   { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+        .anim-modal  { animation: modal-in .18s ease-out; }
+        .anim-fade   { animation: fade-in .18s ease-out; }
+        .anim-toast  { animation: toast-in .2s ease-out; }
+        /* Champs de formulaire communs (utilisables partout via la classe .field) */
+        .field { width: 100%; background: #fff; border: 1px solid rgba(15,45,36,.12); border-radius: .875rem; padding: .75rem 1rem; font-size: .875rem; color: #0F2D24; outline: none; transition: border-color .15s, box-shadow .15s; }
+        .field::placeholder { color: rgba(15,45,36,.35); }
+        .field:focus { border-color: #8DC63F; box-shadow: 0 0 0 4px rgba(141,198,63,.18); }
+        .field-label { display: block; font-size: .75rem; font-weight: 600; color: rgba(15,45,36,.6); margin-bottom: .375rem; }
+        .form-error ul { margin-top: .375rem; font-size: .75rem; color: #dc2626; }
+        /* Cartes Leaflet (Symfony UX Map) : Tailwind force "max-width: 100%" sur les images,
+           ce qui casse les tuiles de la carte. On l'annule a l'interieur des cartes. */
+        .leaflet-container { font-family: 'Sora', sans-serif; }
+        .leaflet-container img { max-width: none !important; max-height: none !important; }
+        .leaflet-popup-content-wrapper { border-radius: 1rem; box-shadow: 0 24px 60px -20px rgba(15,45,36,.35); }
+        .leaflet-popup-content { margin: .75rem 1rem; font-size: .8125rem; color: #0F2D24; }
+        .leaflet-bar a { color: #0F2D24; }
+    </style>
     {% block stylesheets %}{% endblock %}
+    {# JavaScript gere par AssetMapper (Stimulus + Symfony UX Map). Les modules sont charges en differe. #}
+    {% block importmap %}{{ importmap('app') }}{% endblock %}
 </head>
 <body class="font-sans bg-cream text-ink min-h-screen flex flex-col">
 
-    {# NAVBAR #}
-    <nav class="bg-cream border-b border-black/10 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+{% set unreadCount = app.user ? unread_messages_count() : 0 %}
+{% set currentRoute = app.request.attributes.get('_route') %}
 
-            {# LOGO #}
-            <a href="{{ path('app_home') }}" class="flex items-center gap-1">
-                <span class="text-2xl font-extrabold text-brand tracking-tight">Covoite</span>
-                <span class="w-2 h-2 rounded-full bg-lime mb-3 -ml-1"></span>
+{# ══════════════════════════ NAVBAR ══════════════════════════ #}
+<header class="bg-white/90 backdrop-blur border-b border-black/5 sticky top-0 z-40">
+    <nav class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+
+        {# LOGO #}
+        <a href="{{ path('app_home') }}" class="flex items-center gap-1 shrink-0" aria-label="Accueil Covoite">
+            <span class="text-2xl font-extrabold text-brand tracking-tight">Covoite</span>
+            <span class="w-2 h-2 rounded-full bg-lime mb-3 -ml-0.5"></span>
+        </a>
+
+        {# ACTIONS #}
+        <div class="flex items-center gap-1 sm:gap-2">
+
+            <a href="{{ path('app_search') }}"
+               class="hidden md:inline-flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-full transition
+                      {{ currentRoute == 'app_search' ? 'text-brand bg-cream' : 'text-brand/70 hover:text-brand hover:bg-cream' }}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5" stroke-linecap="round"/></svg>
+                Rechercher
             </a>
 
-            {# NAV LINKS #}
-            <div class="hidden md:flex items-center gap-8 text-sm font-medium text-brand/70">
-                <a href="{{ path('app_home') }}" class="hover:text-brand transition">Accueil</a>
-                <a href="{{ path('app_search') }}" class="hover:text-brand transition">Trajets</a>
-                <a href="#" class="hover:text-brand transition">Comment ca marche</a>
-                <a href="#" class="hover:text-brand transition">A propos</a>
-            </div>
+            <a href="{{ path('app_trip_new') }}"
+               class="hidden md:inline-flex items-center gap-2 text-sm font-semibold text-brand border border-brand/15 hover:border-brand/40 px-4 py-2 rounded-full transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8" stroke-linecap="round"/></svg>
+                Proposer un trajet
+            </a>
 
-            {# AUTH #}
-            <div class="flex items-center gap-3">
-                {% if app.user %}
-                    {% set unreadCount = unread_messages_count() %}
+            {% if app.user %}
+                <a href="{{ path('app_rides') }}"
+                   class="hidden md:inline-flex items-center text-sm font-semibold px-3 py-2 rounded-full transition
+                          {{ currentRoute starts with 'app_ride' ? 'text-brand bg-cream' : 'text-brand/70 hover:text-brand hover:bg-cream' }}">
+                    Mes trajets
+                </a>
 
-                    {# MESSAGES LINK #}
-                    <a href="{{ path('app_messages') }}"
-                       class="relative text-brand/70 hover:text-brand transition p-1.5 rounded-lg hover:bg-brand/5">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                        </svg>
-                        {% if unreadCount > 0 %}
-                            <span class="absolute -top-0.5 -right-0.5 w-4 h-4 bg-lime rounded-full flex items-center justify-center text-brand font-bold"
-                                  style="font-size: 9px; line-height: 1;">
-                                {{ unreadCount > 9 ? '9+' : unreadCount }}
+                {# MESSAGES #}
+                <a href="{{ path('app_messages') }}" aria-label="Messages"
+                   class="relative w-10 h-10 inline-flex items-center justify-center rounded-full text-brand/70 hover:text-brand hover:bg-cream transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    {% if unreadCount > 0 %}
+                        <span class="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 bg-lime text-brand rounded-full flex items-center justify-center font-bold text-[10px] ring-2 ring-white">
+                            {{ unreadCount > 9 ? '9+' : unreadCount }}
+                        </span>
+                    {% endif %}
+                </a>
+
+                {# MENU UTILISATEUR (clic, pas survol : fonctionne aussi sur mobile) #}
+                <div class="relative" data-dropdown>
+                    <button type="button" data-dropdown-toggle aria-haspopup="true" aria-expanded="false"
+                            class="flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full hover:bg-cream transition">
+                        {% if app.user.avatar %}
+                            <img src="{{ app.user.avatar }}" alt="" class="w-8 h-8 rounded-full object-cover">
+                        {% else %}
+                            <span class="w-8 h-8 rounded-full bg-brand flex items-center justify-center text-xs font-bold text-lime">
+                                {{ app.user.firstName|first|upper }}
                             </span>
                         {% endif %}
-                    </a>
+                        <svg class="w-4 h-4 text-brand/50" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
 
-                    {# USER DROPDOWN #}
-                    <div class="relative group">
-                        <button class="text-sm font-semibold text-brand hover:text-brand/70 transition flex items-center gap-1.5">
+                    <div data-dropdown-menu hidden
+                         class="anim-fade absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-pop border border-black/5 p-2">
+
+                        <a href="{{ path('app_profile_show', {id: app.user.id}) }}"
+                           class="flex items-center gap-3 p-2.5 rounded-xl hover:bg-cream transition">
                             {% if app.user.avatar %}
-                                <img src="{{ app.user.avatar }}" alt="{{ app.user.firstName }}"
-                                     class="w-7 h-7 rounded-full object-cover border border-brand/20">
+                                <img src="{{ app.user.avatar }}" alt="" class="w-10 h-10 rounded-full object-cover">
                             {% else %}
-                                <span class="w-7 h-7 rounded-full bg-brand flex items-center justify-center text-xs font-bold text-lime">
+                                <span class="w-10 h-10 rounded-full bg-brand flex items-center justify-center text-sm font-bold text-lime">
                                     {{ app.user.firstName|first|upper }}
                                 </span>
                             {% endif %}
-                            {{ app.user.firstName }}
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-50">
-                                <polyline points="6 9 12 15 18 9"/>
-                            </svg>
-                        </button>
+                            <span class="min-w-0">
+                                <span class="block text-sm font-bold text-brand truncate">{{ app.user.firstName }} {{ app.user.lastName }}</span>
+                                <span class="block text-xs text-brand/50">Voir et modifier mon profil</span>
+                            </span>
+                        </a>
 
-                        {# DROPDOWN MENU #}
-                        <div class="absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl shadow-lg border border-black/8 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150">
+                        <div class="h-px bg-black/5 my-1.5"></div>
 
-                            <a href="{{ path('app_account') }}"
-                               class="flex items-center gap-3 px-4 py-2.5 text-sm text-brand hover:bg-cream transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
-                                    <rect x="3" y="3" width="7" height="7" rx="1"/>
-                                    <rect x="14" y="3" width="7" height="7" rx="1"/>
-                                    <rect x="3" y="14" width="7" height="7" rx="1"/>
-                                    <rect x="14" y="14" width="7" height="7" rx="1"/>
-                                </svg>
-                                Tableau de bord
+                        {# Liens visibles seulement sur mobile (sur ordinateur ils sont dans la barre) #}
+                        <a href="{{ path('app_search') }}" class="md:hidden flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-brand rounded-xl hover:bg-cream transition">
+                            <svg class="w-4 h-4 text-brand/50" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5" stroke-linecap="round"/></svg>
+                            Rechercher un trajet
+                        </a>
+                        <a href="{{ path('app_trip_new') }}" class="md:hidden flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-brand rounded-xl hover:bg-cream transition">
+                            <svg class="w-4 h-4 text-brand/50" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8" stroke-linecap="round"/></svg>
+                            Proposer un trajet
+                        </a>
+
+                        <a href="{{ path('app_rides') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-brand rounded-xl hover:bg-cream transition">
+                            <svg class="w-4 h-4 text-brand/50" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.5 6H15a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h6.5"/></svg>
+                            Mes trajets
+                        </a>
+                        <a href="{{ path('app_messages') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-brand rounded-xl hover:bg-cream transition">
+                            <svg class="w-4 h-4 text-brand/50" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            Messages
+                            {% if unreadCount > 0 %}
+                                <span class="ml-auto bg-lime text-brand text-[11px] font-bold px-2 py-0.5 rounded-full">{{ unreadCount }}</span>
+                            {% endif %}
+                        </a>
+                        <a href="{{ path('app_vehicle_index') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-brand rounded-xl hover:bg-cream transition">
+                            <svg class="w-4 h-4 text-brand/50" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 17h14M5 17a2 2 0 1 0 4 0M15 17a2 2 0 1 0 4 0M3 17v-4l2-5a2 2 0 0 1 1.9-1.4h10.2A2 2 0 0 1 19 8l2 5v4"/></svg>
+                            Mes vehicules
+                        </a>
+
+                        {% if is_granted('ROLE_ADMIN') %}
+                            <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-brand rounded-xl hover:bg-cream transition">
+                                <svg class="w-4 h-4 text-brand/50" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/></svg>
+                                Administration
                             </a>
+                        {% endif %}
 
-                            <a href="{{ path('app_profile_show', {'id': app.user.id}) }}"
-                               class="flex items-center gap-3 px-4 py-2.5 text-sm text-brand hover:bg-cream transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
-                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                                    <circle cx="12" cy="7" r="4"/>
-                                </svg>
-                                Mon profil
-                            </a>
+                        <div class="h-px bg-black/5 my-1.5"></div>
 
-                            <a href="{{ path('app_profile_edit') }}"
-                               class="flex items-center gap-3 px-4 py-2.5 text-sm text-brand hover:bg-cream transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
-                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                                </svg>
-                                Modifier le profil
-                            </a>
-
-                            <a href="{{ path('app_vehicle_index') }}"
-                               class="flex items-center gap-3 px-4 py-2.5 text-sm text-brand hover:bg-cream transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
-                                    <rect x="1" y="3" width="15" height="13" rx="2"/>
-                                    <path d="M16 8h4l3 3v4h-7V8z"/>
-                                    <circle cx="5.5" cy="18.5" r="2.5"/>
-                                    <circle cx="18.5" cy="18.5" r="2.5"/>
-                                </svg>
-                                Mes vehicules
-                            </a>
-
-                            <a href="{{ path('app_messages') }}"
-                               class="flex items-center gap-3 px-4 py-2.5 text-sm text-brand hover:bg-cream transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
-                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                                </svg>
-                                Messages
-                                {% if unreadCount > 0 %}
-                                    <span class="ml-auto bg-lime text-brand text-xs font-bold px-1.5 py-0.5 rounded-full">
-                                        {{ unreadCount }}
-                                    </span>
-                                {% endif %}
-                            </a>
-
-                            <div class="border-t border-black/8 my-1.5"></div>
-
-                            <a href="{{ path('app_logout') }}"
-                               class="flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-70">
-                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                                    <polyline points="16 17 21 12 16 7"/>
-                                    <line x1="21" y1="12" x2="9" y2="12"/>
-                                </svg>
-                                Deconnexion
-                            </a>
-                        </div>
+                        <a href="{{ path('app_logout') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-red-600 rounded-xl hover:bg-red-50 transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+                            Se deconnecter
+                        </a>
                     </div>
-
-                {% else %}
-                    <a href="{{ path('app_login') }}"
-                       class="text-sm font-semibold bg-lime text-brand px-5 py-2 rounded-full hover:bg-lime-hover transition">
-                        Se connecter
-                    </a>
-                    <a href="{{ path('app_register') }}"
-                       class="text-sm font-semibold border-2 border-brand text-brand px-5 py-2 rounded-full hover:bg-brand hover:text-cream transition">
-                        S'inscrire
-                    </a>
-                {% endif %}
-            </div>
+                </div>
+            {% else %}
+                <a href="{{ path('app_login') }}"
+                   class="text-sm font-semibold text-brand px-3 py-2 rounded-full hover:bg-cream transition">
+                    Connexion
+                </a>
+                <a href="{{ path('app_register') }}"
+                   class="text-sm font-semibold bg-brand text-cream px-4 py-2 rounded-full hover:bg-brand-light transition">
+                    S'inscrire
+                </a>
+            {% endif %}
         </div>
     </nav>
+</header>
 
-    {# FLASH #}
+{# ══════════════════════════ NOTIFICATIONS (toasts) ══════════════════════════ #}
+<div id="toasts" class="fixed top-20 right-4 left-4 sm:left-auto sm:w-96 z-50 flex flex-col gap-2 pointer-events-none">
     {% for type, messages in app.flashes %}
         {% for message in messages %}
-            <div class="max-w-7xl mx-auto px-6 mt-4">
-                <div class="rounded-xl px-4 py-3 text-sm font-medium
-                    {% if type == 'success' %}bg-lime/20 text-brand border border-lime/40
-                    {% elseif type == 'error' %}bg-red-50 text-red-800 border border-red-200
-                    {% else %}bg-brand/10 text-brand border border-brand/20{% endif %}">
-                    {{ message }}
-                </div>
+            <div data-toast role="status"
+                 class="anim-toast pointer-events-auto flex items-start gap-3 bg-white rounded-2xl shadow-pop border border-black/5 p-4">
+                {% if type == 'success' %}
+                    <span class="w-8 h-8 rounded-full bg-lime/20 text-brand flex items-center justify-center shrink-0">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                {% elseif type == 'error' %}
+                    <span class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M12 8v5M12 16.5v.5" stroke-linecap="round"/></svg>
+                    </span>
+                {% else %}
+                    <span class="w-8 h-8 rounded-full bg-brand/10 text-brand flex items-center justify-center shrink-0">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M12 11v5M12 7.5V8" stroke-linecap="round"/></svg>
+                    </span>
+                {% endif %}
+                <p class="text-sm text-brand font-medium leading-snug pt-1.5 flex-1">{{ message }}</p>
+                <button type="button" data-toast-close aria-label="Fermer" class="text-brand/30 hover:text-brand transition pt-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" stroke-linecap="round"/></svg>
+                </button>
             </div>
         {% endfor %}
     {% endfor %}
+</div>
 
-    <main class="flex-1">
-        {% block body %}{% endblock %}
-    </main>
+<main class="flex-1">
+    {% block body %}{% endblock %}
+</main>
 
-    <footer class="bg-brand text-cream/60 mt-auto">
-        <div class="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center text-sm">
-            <div class="flex items-center gap-1">
-                <span class="font-bold text-cream text-lg">Covoite</span>
-                <span class="w-1.5 h-1.5 rounded-full bg-lime mb-2.5 -ml-0.5"></span>
+{% block footer %}
+{# ══════════════════════════ FOOTER ══════════════════════════ #}
+<footer class="bg-brand text-cream/60 mt-auto">
+    <div class="max-w-6xl mx-auto px-6 py-12 grid gap-10 md:grid-cols-4">
+        <div class="md:col-span-2">
+            <div class="flex items-center gap-1 mb-3">
+                <span class="font-extrabold text-cream text-2xl tracking-tight">Covoite</span>
+                <span class="w-2 h-2 rounded-full bg-lime mb-3 -ml-0.5"></span>
             </div>
-            <div class="flex gap-6">
-                <a href="#" class="hover:text-cream transition">CGU</a>
-                <a href="#" class="hover:text-cream transition">Confidentialite</a>
-                <a href="#" class="hover:text-cream transition">Contact</a>
-            </div>
-            <span>© 2026 Covoite</span>
+            <p class="text-sm leading-relaxed max-w-xs">Le covoiturage, plus proche de vous. Partagez la route, les frais et quelques bons moments.</p>
         </div>
-    </footer>
+        <div>
+            <p class="text-cream font-semibold text-sm mb-3">Voyager</p>
+            <ul class="space-y-2 text-sm">
+                <li><a href="{{ path('app_search') }}" class="hover:text-cream transition">Rechercher un trajet</a></li>
+                <li><a href="{{ path('app_trip_new') }}" class="hover:text-cream transition">Proposer un trajet</a></li>
+                <li><a href="{{ path('app_home') }}#comment-ca-marche" class="hover:text-cream transition">Comment ca marche</a></li>
+            </ul>
+        </div>
+        <div>
+            <p class="text-cream font-semibold text-sm mb-3">Covoite</p>
+            <ul class="space-y-2 text-sm">
+                <li><a href="#" class="hover:text-cream transition">Conditions d'utilisation</a></li>
+                <li><a href="#" class="hover:text-cream transition">Confidentialite</a></li>
+                <li><a href="#" class="hover:text-cream transition">Contact</a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="border-t border-cream/10">
+        <p class="max-w-6xl mx-auto px-6 py-5 text-xs">&copy; {{ 'now'|date('Y') }} Covoite. Projet BUT MMI.</p>
+    </div>
+</footer>
+{% endblock %}
 
-    {% block javascripts %}{% endblock %}
+{# ══════════════════════════ MODALE DE CONFIRMATION (remplace confirm()) ══════════════════════════
+   Utilisation sur n'importe quel formulaire :
+     <form method="post" action="..."
+           data-confirm="Texte d'explication"
+           data-confirm-title="Annuler ce trajet ?"
+           data-confirm-button="Oui, annuler"
+           data-confirm-tone="danger"                  (optionnel : rouge)
+           data-confirm-reason="Motif (optionnel)">    (optionnel : ajoute un champ texte envoye en "reason")
+#}
+<div id="confirm-modal" hidden class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div data-modal-backdrop class="anim-fade absolute inset-0 bg-brand/40 backdrop-blur-sm"></div>
+    <div class="anim-modal relative w-full max-w-md bg-white rounded-3xl shadow-pop p-6 sm:p-7">
+        <div data-confirm-icon class="w-12 h-12 rounded-2xl flex items-center justify-center mb-4"></div>
+        <h2 id="confirm-title" class="text-lg font-extrabold text-brand"></h2>
+        <p data-confirm-text class="text-sm text-brand/60 mt-1.5 leading-relaxed"></p>
+        <div data-confirm-reason-wrap hidden class="mt-4">
+            <label for="confirm-reason" class="field-label" data-confirm-reason-label></label>
+            <textarea id="confirm-reason" rows="3" class="field resize-none"></textarea>
+        </div>
+        <div class="flex flex-col-reverse sm:flex-row gap-2 mt-6">
+            <button type="button" data-modal-close
+                    class="flex-1 px-5 py-3 rounded-full border border-brand/15 text-brand font-semibold text-sm hover:bg-cream transition">
+                Retour
+            </button>
+            <button type="button" data-confirm-ok
+                    class="flex-1 px-5 py-3 rounded-full font-semibold text-sm transition"></button>
+        </div>
+    </div>
+</div>
+
+<script>
+(() => {
+    // ── Menus deroulants ouverts au clic ───────────────────────────────
+    document.querySelectorAll('[data-dropdown]').forEach((root) => {
+        const btn  = root.querySelector('[data-dropdown-toggle]');
+        const menu = root.querySelector('[data-dropdown-menu]');
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            menu.hidden = !menu.hidden;
+            btn.setAttribute('aria-expanded', String(!menu.hidden));
+        });
+        document.addEventListener('click', (e) => {
+            if (!root.contains(e.target)) { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+        });
+    });
+
+    // ── Toasts : fermeture auto apres 5 s ──────────────────────────────
+    document.querySelectorAll('[data-toast]').forEach((toast) => {
+        const close = () => toast.remove();
+        toast.querySelector('[data-toast-close]').addEventListener('click', close);
+        setTimeout(close, 5000);
+    });
+
+    // ── Modales generiques : <button data-modal-open="mon-id"> + <div id="mon-id" data-modal hidden> ──
+    let lastFocus = null;
+    const openModal = (modal) => {
+        lastFocus = document.activeElement;
+        modal.hidden = false;
+        document.body.style.overflow = 'hidden';
+        const focusable = modal.querySelector('input, textarea, select, button:not([data-modal-close])');
+        if (focusable) setTimeout(() => focusable.focus(), 50);
+    };
+    const closeModal = (modal) => {
+        modal.hidden = true;
+        document.body.style.overflow = '';
+        if (lastFocus) lastFocus.focus();
+    };
+    window.CovoiteModal = { open: openModal, close: closeModal };
+
+    document.addEventListener('click', (e) => {
+        const opener = e.target.closest('[data-modal-open]');
+        if (opener) {
+            const modal = document.getElementById(opener.dataset.modalOpen);
+            if (modal) { e.preventDefault(); openModal(modal); }
+            return;
+        }
+        if (e.target.closest('[data-modal-close]') || e.target.matches('[data-modal-backdrop]')) {
+            const modal = e.target.closest('[role="dialog"]');
+            if (modal) closeModal(modal);
+        }
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        document.querySelectorAll('[role="dialog"]:not([hidden])').forEach(closeModal);
+    });
+
+    // ── Confirmation des formulaires sensibles ─────────────────────────
+    const modal   = document.getElementById('confirm-modal');
+    const okBtn   = modal.querySelector('[data-confirm-ok]');
+    const icon    = modal.querySelector('[data-confirm-icon]');
+    const reasonW = modal.querySelector('[data-confirm-reason-wrap]');
+    const reason  = modal.querySelector('#confirm-reason');
+    let pendingForm = null;
+
+    const ICONS = {
+        danger:  '<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        default: '<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01" stroke-linecap="round"/></svg>',
+    };
+
+    document.addEventListener('submit', (e) => {
+        const form = e.target;
+        if (!form.matches('[data-confirm]') || form.dataset.confirmed === '1') return;
+        e.preventDefault();
+        pendingForm = form;
+
+        const danger = form.dataset.confirmTone === 'danger';
+        modal.querySelector('#confirm-title').textContent       = form.dataset.confirmTitle || 'Confirmer ?';
+        modal.querySelector('[data-confirm-text]').textContent  = form.dataset.confirm || '';
+        okBtn.textContent = form.dataset.confirmButton || 'Confirmer';
+        okBtn.className   = 'flex-1 px-5 py-3 rounded-full font-semibold text-sm transition ' +
+            (danger ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-lime text-brand hover:bg-lime-hover');
+        icon.className    = 'w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ' +
+            (danger ? 'bg-red-50 text-red-600' : 'bg-lime/20 text-brand');
+        icon.innerHTML    = danger ? ICONS.danger : ICONS.default;
+
+        reason.value   = '';
+        reasonW.hidden = !form.dataset.confirmReason;
+        modal.querySelector('[data-confirm-reason-label]').textContent = form.dataset.confirmReason || '';
+
+        openModal(modal);
+    });
+
+    okBtn.addEventListener('click', () => {
+        if (!pendingForm) return;
+        if (pendingForm.dataset.confirmReason) {
+            let input = pendingForm.querySelector('input[name="reason"]');
+            if (!input) {
+                input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'reason';
+                pendingForm.appendChild(input);
+            }
+            input.value = reason.value.trim();
+        }
+        pendingForm.dataset.confirmed = '1';
+        okBtn.disabled = true;
+        pendingForm.submit();
+    });
+})();
+</script>
+
+<script>
+/* ── Autocompletion des villes (barres de recherche) ─────────────────────
+   Tout champ <input data-city-input> place dans un <div data-city> avec un
+   <ul data-city-list> propose les communes de France pendant la frappe.
+   Source : API de geocodage de l'IGN (Geoplateforme), gratuite et sans cle. */
+(() => {
+    const strip = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+    document.querySelectorAll('[data-city]').forEach((box) => {
+        const input = box.querySelector('[data-city-input]');
+        const list  = box.querySelector('[data-city-list]');
+        let timer = null, items = [], active = -1, ctrl = null;
+
+        const render = () => {
+            list.innerHTML = '';
+            items.forEach((p, i) => {
+                const li = document.createElement('li');
+                li.innerHTML =
+                    '<button type="button" class="w-full text-left flex items-center gap-3 px-4 py-2.5 ' + (i === active ? 'bg-cream' : 'hover:bg-cream') + '">' +
+                    '<svg class="w-4 h-4 text-brand/40 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>' +
+                    '<span class="min-w-0"><span class="block text-sm font-semibold text-brand truncate"></span><span class="block text-xs text-brand/50 truncate"></span></span></button>';
+                const s = li.querySelectorAll('span span');
+                s[0].textContent = p.city;
+                s[1].textContent = [p.postcode, p.context].filter(Boolean).join(' · ');
+                li.firstChild.addEventListener('mousedown', (e) => { e.preventDefault(); pick(p); });
+                list.appendChild(li);
+            });
+            list.hidden = items.length === 0;
+        };
+        const pick = (p) => { input.value = p.city; items = []; list.hidden = true; };
+
+        input.addEventListener('input', () => {
+            clearTimeout(timer);
+            const q = input.value.trim();
+            if (q.length < 2) { items = []; render(); return; }
+            timer = setTimeout(async () => {
+                if (ctrl) ctrl.abort();
+                ctrl = new AbortController();
+                try {
+                    const r = await fetch('https://data.geopf.fr/geocodage/search?type=municipality&autocomplete=1&limit=6&q=' + encodeURIComponent(q), { signal: ctrl.signal });
+                    const data = await r.json();
+                    const seen = new Set();
+                    items = (data.features || []).map((f) => ({
+                        city: f.properties.city || f.properties.name,
+                        postcode: f.properties.postcode,
+                        context: (f.properties.context || '').split(',').slice(1, 2).join('').trim(),
+                    })).filter((p) => { const k = strip(p.city); if (seen.has(k)) return false; seen.add(k); return true; });
+                    active = -1;
+                    render();
+                } catch (e) { /* API indisponible : la saisie libre fonctionne quand meme */ }
+            }, 200);
+        });
+        input.addEventListener('keydown', (e) => {
+            if (list.hidden) return;
+            if (e.key === 'ArrowDown') { e.preventDefault(); active = (active + 1) % items.length; render(); }
+            if (e.key === 'ArrowUp')   { e.preventDefault(); active = (active - 1 + items.length) % items.length; render(); }
+            if (e.key === 'Enter' && active >= 0) { e.preventDefault(); pick(items[active]); }
+            if (e.key === 'Escape') list.hidden = true;
+        });
+        input.addEventListener('blur', () => setTimeout(() => { list.hidden = true; }, 120));
+    });
+
+    // Bouton "inverser depart / arrivee"
+    document.querySelectorAll('[data-search-form] [data-swap]').forEach((btn) => btn.addEventListener('click', () => {
+        const form = btn.closest('form');
+        const a = form.querySelector('[name="from"]'), b = form.querySelector('[name="to"]');
+        [a.value, b.value] = [b.value, a.value];
+        btn.animate([{ transform: 'rotate(0)' }, { transform: 'rotate(180deg)' }], { duration: 250 });
+    }));
+})();
+</script>
+
+{% block javascripts %}{% endblock %}
 </body>
 </html>

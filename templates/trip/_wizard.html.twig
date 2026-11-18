@@ -1,0 +1,660 @@
+{#
+    Assistant de publication / modification de trajet, en plusieurs etapes.
+    Inclus par trip/new.html.twig et trip/edit.html.twig avec :
+      - tripForm       : le formulaire TripFormType
+      - mode           : 'new' ou 'edit'
+      - closeUrl       : ou va la croix "fermer"
+      - confirmedSeats : (edition) places deja reservees
+    Tout reste UN seul formulaire Symfony : les etapes sont juste affichees
+    une par une en JavaScript, et tout est envoye a la fin.
+#}
+{% set isEdit     = mode == 'edit' %}
+{% set hasVehicle = tripForm.vehicle is defined and tripForm.vehicle|length > 0 %}
+
+<style>
+    @keyframes step-in-right { from { opacity: 0; transform: translateX(48px); } to { opacity: 1; transform: none; } }
+    @keyframes step-in-left  { from { opacity: 0; transform: translateX(-48px); } to { opacity: 1; transform: none; } }
+    @keyframes shake { 10%, 90% { transform: translateX(-1px); } 20%, 80% { transform: translateX(3px); } 30%, 50%, 70% { transform: translateX(-6px); } 40%, 60% { transform: translateX(6px); } }
+    @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.12); } 100% { transform: scale(1); } }
+    .step-in-right { animation: step-in-right .32s cubic-bezier(.2,.8,.2,1); }
+    .step-in-left  { animation: step-in-left .32s cubic-bezier(.2,.8,.2,1); }
+    .shake { animation: shake .45s; }
+    .pop   { animation: pop .25s ease-out; }
+    .wz-input { width: 100%; background: #fff; border: 2px solid rgba(15,45,36,.1); border-radius: 1.25rem; padding: 1.1rem 1.25rem 1.1rem 3.25rem; font-size: 1.05rem; font-weight: 600; color: #0F2D24; outline: none; transition: border-color .15s, box-shadow .15s; }
+    .wz-input::placeholder { color: rgba(15,45,36,.35); font-weight: 500; }
+    .wz-input:focus { border-color: #8DC63F; box-shadow: 0 0 0 5px rgba(141,198,63,.18); }
+    .wz-chip { display: inline-flex; align-items: center; gap: .5rem; padding: .7rem 1.1rem; border-radius: 9999px; border: 2px solid rgba(15,45,36,.1); background: #fff; font-size: .875rem; font-weight: 600; color: #0F2D24; cursor: pointer; transition: all .15s; }
+    .wz-chip:hover { border-color: rgba(15,45,36,.3); }
+    .wz-chip[aria-pressed="true"], .peer:checked + .wz-chip { background: #0F2D24; border-color: #0F2D24; color: #F5F5F0; }
+    .peer:focus-visible + .wz-chip { box-shadow: 0 0 0 4px rgba(141,198,63,.35); }
+    .wz-round { width: 3.5rem; height: 3.5rem; border-radius: 9999px; border: 2px solid rgba(15,45,36,.15); display: flex; align-items: center; justify-content: center; color: #0F2D24; transition: all .15s; background: #fff; }
+    .wz-round:hover:not(:disabled) { border-color: #0F2D24; }
+    .wz-round:disabled { opacity: .3; cursor: not-allowed; }
+</style>
+
+<div class="min-h-[calc(100vh-4rem)] flex flex-col">
+
+    {# ══════════ BARRE DU HAUT : fermer + progression ══════════ #}
+    <div class="sticky top-16 z-20 bg-cream/90 backdrop-blur">
+        <div class="max-w-xl mx-auto px-4 sm:px-6 pt-5 pb-3 flex items-center gap-4">
+            <a href="{{ closeUrl }}" aria-label="Quitter"
+               class="w-10 h-10 shrink-0 rounded-full bg-white border border-black/5 flex items-center justify-center text-brand/60 hover:text-brand transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" stroke-linecap="round"/></svg>
+            </a>
+            <div class="flex-1">
+                <div class="h-1.5 rounded-full bg-black/5 overflow-hidden">
+                    <div data-progress class="h-full bg-lime rounded-full transition-all duration-500 ease-out" style="width: 0"></div>
+                </div>
+            </div>
+            <span data-step-count class="text-xs font-semibold text-brand/50 w-12 text-right"></span>
+        </div>
+    </div>
+
+    {{ form_start(tripForm, {attr: {novalidate: 'novalidate', class: 'flex-1 flex flex-col', id: 'trip-wizard'}}) }}
+
+    <div class="flex-1 max-w-xl w-full mx-auto px-4 sm:px-6 pt-6 pb-36">
+
+        {{ form_errors(tripForm) }}
+
+        {# ══════════ 1. DEPART ══════════ #}
+        <section data-step data-title="Depart" hidden>
+            <p class="text-sm font-semibold text-lime">{{ isEdit ? 'Modifier le depart' : 'C\'est parti' }}</p>
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-brand tracking-tight mt-1">D'ou partez-vous ?</h1>
+            <p class="text-sm text-brand/50 mt-2">Une adresse precise, une gare, un parking... Vos passagers vous retrouveront la.</p>
+
+            <div class="relative mt-7" data-geo="departure">
+                <svg class="w-5 h-5 text-brand absolute left-5 top-[1.35rem] pointer-events-none" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><circle cx="12" cy="12" r="8.5"/></svg>
+                {{ form_widget(tripForm.departureAddress, {attr: {class: 'wz-input', placeholder: 'Ex : Gare d\'Angouleme', autocomplete: 'off', 'data-geo-input': '', 'data-required': 'Indiquez un point de depart.'}}) }}
+                <ul data-geo-list hidden class="anim-fade absolute z-30 left-0 right-0 mt-2 bg-white rounded-2xl shadow-pop border border-black/5 py-2 max-h-80 overflow-auto"></ul>
+                <div class="form-error">{{ form_errors(tripForm.departureAddress) }}</div>
+
+                <div data-geo-picked hidden class="mt-4 flex items-center gap-3 bg-lime-soft rounded-2xl px-4 py-3">
+                    <span class="w-9 h-9 rounded-full bg-lime text-brand flex items-center justify-center shrink-0">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                    <p class="text-sm text-brand"><strong data-geo-city></strong> <span class="text-brand/50" data-geo-cp></span></p>
+                </div>
+
+                <details data-geo-manual class="mt-4 group">
+                    <summary class="cursor-pointer list-none text-xs font-semibold text-brand/50 hover:text-brand">Corriger la ville ou le code postal</summary>
+                    <div class="grid grid-cols-[1fr_8rem] gap-3 mt-3">
+                        <div>
+                            <label class="field-label" for="{{ tripForm.departureCity.vars.id }}">Ville</label>
+                            {{ form_widget(tripForm.departureCity, {attr: {class: 'field', 'data-geo-city-input': '', 'data-required': 'Ville de depart manquante : choisissez une adresse dans la liste.'}}) }}
+                            <div class="form-error">{{ form_errors(tripForm.departureCity) }}</div>
+                        </div>
+                        <div>
+                            <label class="field-label" for="{{ tripForm.departurePostalCode.vars.id }}">Code postal</label>
+                            {{ form_widget(tripForm.departurePostalCode, {attr: {class: 'field', inputmode: 'numeric', 'data-geo-cp-input': '', 'data-required': 'Code postal de depart manquant.'}}) }}
+                            <div class="form-error">{{ form_errors(tripForm.departurePostalCode) }}</div>
+                        </div>
+                    </div>
+                </details>
+                {{ form_widget(tripForm.departureLat, {attr: {'data-geo-lat': ''}}) }}
+                {{ form_widget(tripForm.departureLng, {attr: {'data-geo-lng': ''}}) }}
+            </div>
+            <p data-step-error class="hidden text-sm font-medium text-red-600 mt-3"></p>
+        </section>
+
+        {# ══════════ 2. ARRIVEE ══════════ #}
+        <section data-step data-title="Arrivee" hidden>
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-brand tracking-tight">Ou allez-vous ?</h1>
+            <p class="text-sm text-brand/50 mt-2">L'endroit ou vous deposerez vos passagers.</p>
+
+            <div class="relative mt-7" data-geo="arrival">
+                <svg class="w-5 h-5 text-brand absolute left-5 top-[1.35rem] pointer-events-none" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+                {{ form_widget(tripForm.arrivalAddress, {attr: {class: 'wz-input', placeholder: 'Ex : Place de la Republique, Limoges', autocomplete: 'off', 'data-geo-input': '', 'data-required': 'Indiquez votre destination.'}}) }}
+                <ul data-geo-list hidden class="anim-fade absolute z-30 left-0 right-0 mt-2 bg-white rounded-2xl shadow-pop border border-black/5 py-2 max-h-80 overflow-auto"></ul>
+                <div class="form-error">{{ form_errors(tripForm.arrivalAddress) }}</div>
+
+                <div data-geo-picked hidden class="mt-4 flex items-center gap-3 bg-lime-soft rounded-2xl px-4 py-3">
+                    <span class="w-9 h-9 rounded-full bg-lime text-brand flex items-center justify-center shrink-0">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                    <p class="text-sm text-brand"><strong data-geo-city></strong> <span class="text-brand/50" data-geo-cp></span></p>
+                </div>
+
+                <details data-geo-manual class="mt-4">
+                    <summary class="cursor-pointer list-none text-xs font-semibold text-brand/50 hover:text-brand">Corriger la ville ou le code postal</summary>
+                    <div class="grid grid-cols-[1fr_8rem] gap-3 mt-3">
+                        <div>
+                            <label class="field-label" for="{{ tripForm.arrivalCity.vars.id }}">Ville</label>
+                            {{ form_widget(tripForm.arrivalCity, {attr: {class: 'field', 'data-geo-city-input': '', 'data-required': 'Ville d\'arrivee manquante : choisissez une adresse dans la liste.'}}) }}
+                            <div class="form-error">{{ form_errors(tripForm.arrivalCity) }}</div>
+                        </div>
+                        <div>
+                            <label class="field-label" for="{{ tripForm.arrivalPostalCode.vars.id }}">Code postal</label>
+                            {{ form_widget(tripForm.arrivalPostalCode, {attr: {class: 'field', inputmode: 'numeric', 'data-geo-cp-input': '', 'data-required': 'Code postal d\'arrivee manquant.'}}) }}
+                            <div class="form-error">{{ form_errors(tripForm.arrivalPostalCode) }}</div>
+                        </div>
+                    </div>
+                </details>
+                {{ form_widget(tripForm.arrivalLat, {attr: {'data-geo-lat': ''}}) }}
+                {{ form_widget(tripForm.arrivalLng, {attr: {'data-geo-lng': ''}}) }}
+            </div>
+            <p data-step-error class="hidden text-sm font-medium text-red-600 mt-3"></p>
+        </section>
+
+        {# ══════════ 3. QUAND ══════════ #}
+        <section data-step data-title="Date" hidden>
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-brand tracking-tight">Quand partez-vous ?</h1>
+
+            <p class="text-xs font-semibold uppercase tracking-widest text-brand/40 mt-8">Jour</p>
+            <div class="flex flex-wrap gap-2 mt-3" data-day-chips>
+                <button type="button" class="wz-chip" data-day-offset="0">Aujourd'hui</button>
+                <button type="button" class="wz-chip" data-day-offset="1">Demain</button>
+                <button type="button" class="wz-chip" data-day-offset="2" data-day-label></button>
+                <label class="wz-chip relative">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+                    <input type="date" data-date-input min="{{ 'now'|date('Y-m-d') }}" class="bg-transparent outline-none text-sm font-semibold w-[8.5rem] cursor-pointer">
+                </label>
+            </div>
+
+            <p class="text-xs font-semibold uppercase tracking-widest text-brand/40 mt-8">Heure de depart</p>
+            <div class="flex flex-wrap items-center gap-2 mt-3">
+                <input type="time" data-time-input step="300"
+                       class="bg-white border-2 border-black/10 focus:border-lime rounded-2xl px-5 py-3 text-2xl font-extrabold text-brand outline-none transition">
+                {% for t in ['07:00', '08:00', '12:00', '17:30', '19:00'] %}
+                    <button type="button" class="wz-chip" data-time-chip="{{ t }}">{{ t|replace({':': 'h'}) }}</button>
+                {% endfor %}
+            </div>
+
+            {# Le vrai champ Symfony, rempli automatiquement #}
+            {{ form_widget(tripForm.departureAt, {attr: {class: 'hidden', tabindex: '-1', 'data-datetime': ''}}) }}
+            <div class="form-error">{{ form_errors(tripForm.departureAt) }}</div>
+
+            <p data-date-summary class="mt-8 text-sm text-brand/60"></p>
+            <p data-step-error class="hidden text-sm font-medium text-red-600 mt-3"></p>
+        </section>
+
+        {# ══════════ 4. VEHICULE ══════════ #}
+        <section data-step data-title="Vehicule" hidden>
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-brand tracking-tight">Avec quelle voiture ?</h1>
+            <p class="text-sm text-brand/50 mt-2">Vos passagers la reconnaitront plus facilement.</p>
+
+            {% if hasVehicle %}
+                <div class="grid gap-3 mt-7">
+                    {% for choice in tripForm.vehicle %}
+                        <label class="cursor-pointer block">
+                            {{ form_widget(choice, {attr: {class: 'peer sr-only', 'data-vehicle-radio': ''}}) }}
+                            <span class="flex items-center gap-4 bg-white border-2 border-black/10 rounded-2xl p-4 transition
+                                         peer-checked:border-brand peer-checked:bg-white peer-checked:shadow-card peer-focus-visible:ring-4 peer-focus-visible:ring-lime/30 hover:border-brand/30">
+                                <span class="w-12 h-12 rounded-xl bg-cream text-brand flex items-center justify-center shrink-0">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 17h14M5 17a2 2 0 1 0 4 0M15 17a2 2 0 1 0 4 0M3 17v-4l2-5a2 2 0 0 1 1.9-1.4h10.2A2 2 0 0 1 19 8l2 5v4"/></svg>
+                                </span>
+                                <span class="flex-1">
+                                    <span class="block text-base font-bold text-brand">{{ choice.vars.label }}</span>
+                                    <span class="block text-xs text-brand/50">{{ choice.vars.attr['data-color'] ?? '' }} · {{ choice.vars.attr['data-seats'] ?? '' }} places</span>
+                                </span>
+                                <span class="w-6 h-6 rounded-full border-2 border-black/15 flex items-center justify-center shrink-0" data-vehicle-dot></span>
+                            </span>
+                        </label>
+                    {% endfor %}
+                </div>
+                <button type="button" data-vehicle-none class="mt-4 text-sm font-semibold text-brand/50 hover:text-brand">Je ne precise pas le vehicule</button>
+            {% else %}
+                <div class="mt-7 bg-white rounded-2xl border border-black/5 shadow-card p-6 text-center">
+                    <p class="text-sm text-brand/70">Vous n'avez pas encore enregistre de vehicule. Ce n'est pas obligatoire pour publier.</p>
+                    <a href="{{ path('app_vehicle_new') }}" class="inline-block mt-4 text-sm font-semibold text-brand underline underline-offset-4">Ajouter un vehicule (dans un nouvel onglet)</a>
+                </div>
+                {% if tripForm.vehicle is defined %}{% do tripForm.vehicle.setRendered() %}{% endif %}
+            {% endif %}
+        </section>
+
+        {# ══════════ 5. PLACES ══════════ #}
+        <section data-step data-title="Places" hidden>
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-brand tracking-tight">Combien de passagers pouvez-vous prendre ?</h1>
+            {% if isEdit and confirmedSeats > 0 %}
+                <p class="text-sm text-brand/60 mt-3 bg-white border border-black/5 rounded-xl px-4 py-3">
+                    {{ confirmedSeats }} place{{ confirmedSeats > 1 ? 's' }} deja reservee{{ confirmedSeats > 1 ? 's' }}. Indiquez ici les places <strong>encore libres</strong>.
+                </p>
+            {% endif %}
+
+            <div class="flex items-center justify-center gap-8 mt-12">
+                <button type="button" class="wz-round" data-seats-minus aria-label="Une place de moins">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14" stroke-linecap="round"/></svg>
+                </button>
+                <div class="text-center w-28">
+                    <p data-seats-display class="text-7xl font-extrabold text-brand tabular-nums leading-none">3</p>
+                    <p data-seats-word class="text-sm text-brand/50 mt-2">places</p>
+                </div>
+                <button type="button" class="wz-round" data-seats-plus aria-label="Une place de plus">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                </button>
+            </div>
+            <p data-seats-hint class="text-center text-xs text-brand/40 mt-6"></p>
+
+            {{ form_widget(tripForm.availableSeats, {attr: {class: 'hidden', tabindex: '-1', 'data-seats-input': ''}}) }}
+            <div class="form-error text-center">{{ form_errors(tripForm.availableSeats) }}</div>
+        </section>
+
+        {# ══════════ 6. PRIX ══════════ #}
+        <section data-step data-title="Prix" hidden>
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-brand tracking-tight">Votre prix par passager</h1>
+            <p data-route-info class="text-sm text-brand/50 mt-2">Partagez les frais, pas plus : c'est l'esprit du covoiturage.</p>
+
+            <div class="flex items-center justify-center gap-6 mt-10">
+                <button type="button" class="wz-round" data-price-step="-0.5" aria-label="Baisser le prix">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14" stroke-linecap="round"/></svg>
+                </button>
+                <div class="flex items-baseline justify-center">
+                    {{ form_widget(tripForm.price, {attr: {
+                        class: 'w-40 bg-transparent text-center text-7xl font-extrabold text-brand tabular-nums outline-none border-b-4 border-transparent focus:border-lime transition',
+                        inputmode: 'decimal', placeholder: '0', 'data-price': '', 'data-required': 'Indiquez un prix (0 si c\'est gratuit).'
+                    }}) }}
+                    <span class="text-4xl font-extrabold text-brand ml-1">&euro;</span>
+                </div>
+                <button type="button" class="wz-round" data-price-step="0.5" aria-label="Augmenter le prix">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                </button>
+            </div>
+            <div class="form-error text-center">{{ form_errors(tripForm.price) }}</div>
+
+            <div data-price-suggest hidden class="mt-8 flex justify-center">
+                <button type="button" data-price-apply class="inline-flex items-center gap-2 bg-lime-soft border border-lime/40 hover:border-lime text-brand text-sm font-semibold px-4 py-2.5 rounded-full transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M3 12h3M18 12h3" stroke-linecap="round"/></svg>
+                    Prix conseille : <span data-price-suggest-value></span>
+                </button>
+            </div>
+            <p data-price-total class="text-center text-sm text-brand/50 mt-6"></p>
+            <p data-step-error class="hidden text-center text-sm font-medium text-red-600 mt-3"></p>
+        </section>
+
+        {# ══════════ 7. CONFORT ══════════ #}
+        <section data-step data-title="Confort" hidden>
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-brand tracking-tight">Les petits details</h1>
+            <p class="text-sm text-brand/50 mt-2">Tout est facultatif, mais ca rassure vos passagers.</p>
+
+            <p class="text-xs font-semibold uppercase tracking-widest text-brand/40 mt-8">Bagages acceptes</p>
+            <div class="flex flex-wrap gap-2 mt-3">
+                {% for choice in tripForm.luggageAllowed %}
+                    <label class="cursor-pointer">
+                        {{ form_widget(choice, {attr: {class: 'peer sr-only', 'data-luggage-radio': ''}}) }}
+                        <span class="wz-chip">{{ choice.vars.label }}</span>
+                    </label>
+                {% endfor %}
+            </div>
+
+            <label class="flex items-center justify-between gap-4 mt-8 bg-white rounded-2xl border border-black/5 shadow-card px-5 py-4 cursor-pointer">
+                <span>
+                    <span class="block text-sm font-bold text-brand">Eviter les autoroutes</span>
+                    <span class="block text-xs text-brand/50 mt-0.5">Trajet un peu plus long, mais sans peage</span>
+                </span>
+                {{ form_widget(tripForm.avoidHighway, {attr: {class: 'peer sr-only', 'data-highway': ''}}) }}
+                <span class="relative w-12 h-7 shrink-0 rounded-full bg-black/15 transition peer-checked:bg-lime peer-focus-visible:ring-4 peer-focus-visible:ring-lime/30
+                             after:content-[''] after:absolute after:top-1 after:left-1 after:w-5 after:h-5 after:rounded-full after:bg-white after:shadow after:transition peer-checked:after:translate-x-5"></span>
+            </label>
+
+            <p class="text-xs font-semibold uppercase tracking-widest text-brand/40 mt-8">Un mot pour vos passagers</p>
+            {{ form_widget(tripForm.bio, {attr: {class: 'field resize-none mt-3', rows: 4, placeholder: 'Ex : Je pars de la gare cote parking. Petite pause cafe a mi-chemin.'}}) }}
+            <div class="form-error">{{ form_errors(tripForm.bio) }}</div>
+        </section>
+
+        {# ══════════ 8. RECAPITULATIF ══════════ #}
+        <section data-step data-title="Recap" hidden>
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-brand tracking-tight">{{ isEdit ? 'Tout est bon ?' : 'On publie ?' }}</h1>
+            <p class="text-sm text-brand/50 mt-2">Verifiez votre annonce. Vous pourrez la modifier tant que le trajet n'a pas commence.</p>
+
+            <div class="mt-7 bg-white rounded-3xl border border-black/5 shadow-card overflow-hidden">
+                <div class="p-6">
+                    <p data-recap-date class="text-lg font-extrabold text-brand first-letter:uppercase"></p>
+                    <div class="flex gap-4 mt-4">
+                        <p data-recap-time class="w-12 shrink-0 text-sm font-bold text-brand pt-0.5"></p>
+                        <div class="flex flex-col items-center pt-1.5">
+                            <span class="w-3 h-3 rounded-full border-2 border-brand bg-white"></span>
+                            <span class="w-0.5 flex-1 bg-brand my-1"></span>
+                            <span class="w-3 h-3 rounded-full border-2 border-brand bg-white"></span>
+                        </div>
+                        <div class="flex flex-col gap-5 min-w-0">
+                            <div><p data-recap-from-city class="text-sm font-bold text-brand"></p><p data-recap-from class="text-xs text-brand/50"></p></div>
+                            <div><p data-recap-to-city class="text-sm font-bold text-brand"></p><p data-recap-to class="text-xs text-brand/50"></p></div>
+                        </div>
+                    </div>
+                </div>
+                <dl class="border-t border-black/5 divide-y divide-black/5 text-sm">
+                    {% for row in [
+                        {key: 'seats',   label: 'Places',   step: 4},
+                        {key: 'price',   label: 'Prix',     step: 5},
+                        {key: 'vehicle', label: 'Vehicule', step: 3},
+                        {key: 'comfort', label: 'Confort',  step: 6},
+                    ] %}
+                        <div class="flex items-center justify-between gap-4 px-6 py-3.5">
+                            <dt class="text-brand/50">{{ row.label }}</dt>
+                            <dd class="flex items-center gap-3 text-right">
+                                <span data-recap-{{ row.key }} class="font-semibold text-brand"></span>
+                                <button type="button" data-goto="{{ row.step }}" class="text-xs font-semibold text-brand/40 hover:text-brand underline underline-offset-2">Modifier</button>
+                            </dd>
+                        </div>
+                    {% endfor %}
+                </dl>
+            </div>
+            <div class="flex gap-4 mt-4">
+                <button type="button" data-goto="0" class="text-xs font-semibold text-brand/50 hover:text-brand underline underline-offset-2">Modifier l'itineraire</button>
+                <button type="button" data-goto="2" class="text-xs font-semibold text-brand/50 hover:text-brand underline underline-offset-2">Modifier la date</button>
+            </div>
+        </section>
+    </div>
+
+    {# ══════════ BARRE DU BAS : retour / continuer ══════════ #}
+    <div class="fixed bottom-0 inset-x-0 z-20 bg-gradient-to-t from-cream via-cream to-cream/0 pt-8 pb-5">
+        <div class="max-w-xl mx-auto px-4 sm:px-6 flex items-center gap-3">
+            <button type="button" data-prev
+                    class="w-14 h-14 shrink-0 rounded-full bg-white border border-black/10 text-brand flex items-center justify-center hover:border-brand/30 transition disabled:opacity-0 disabled:pointer-events-none">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button type="button" data-next
+                    class="flex-1 h-14 rounded-full bg-brand hover:bg-brand-light text-cream font-bold text-base flex items-center justify-center gap-2 transition">
+                Continuer
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button type="submit" data-submit hidden
+                    class="flex-1 h-14 rounded-full bg-lime hover:bg-lime-hover text-brand font-bold text-base flex items-center justify-center gap-2 transition">
+                {{ isEdit ? 'Enregistrer les modifications' : 'Publier mon trajet' }}
+            </button>
+        </div>
+    </div>
+
+    {{ form_end(tripForm) }}
+</div>
+
+<script>
+(() => {
+    const form  = document.getElementById('trip-wizard');
+    const steps = [...form.querySelectorAll('[data-step]')];
+    const prev  = form.querySelector('[data-prev]');
+    const next  = form.querySelector('[data-next]');
+    const submit = form.querySelector('[data-submit]');
+    const progress = document.querySelector('[data-progress]');
+    const counter  = document.querySelector('[data-step-count]');
+    const isEdit   = {{ isEdit ? 'true' : 'false' }};
+    let current = 0;
+
+    const $  = (sel, root = form) => root.querySelector(sel);
+    const DAYS   = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+    const MONTHS = ['janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin', 'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre'];
+    const euro = (n) => n.toLocaleString('fr-FR', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }) + ' €';
+
+    // ═══════════ NAVIGATION ENTRE ETAPES ═══════════
+    function show(index, direction = 1) {
+        steps[current].hidden = true;
+        current = Math.max(0, Math.min(index, steps.length - 1));
+        const step = steps[current];
+        step.hidden = false;
+        step.classList.remove('step-in-right', 'step-in-left');
+        void step.offsetWidth; // relance l'animation
+        step.classList.add(direction > 0 ? 'step-in-right' : 'step-in-left');
+
+        const last = current === steps.length - 1;
+        prev.disabled = current === 0;
+        next.hidden   = last;
+        submit.hidden = !last;
+        progress.style.width = ((current + 1) / steps.length * 100) + '%';
+        counter.textContent  = (current + 1) + ' / ' + steps.length;
+        if (last) buildRecap();
+        if (current === 5) refreshRouteInfo();
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const focusable = step.querySelector('[data-geo-input], [data-price]');
+        if (focusable && window.matchMedia('(min-width: 640px)').matches) setTimeout(() => focusable.focus(), 320);
+    }
+
+    function fail(step, message) {
+        const box = step.querySelector('[data-step-error]');
+        if (box) { box.textContent = message; box.classList.remove('hidden'); }
+        step.classList.remove('shake'); void step.offsetWidth; step.classList.add('shake');
+        return false;
+    }
+
+    function validate(i) {
+        const step = steps[i];
+        const box  = step.querySelector('[data-step-error]');
+        if (box) box.classList.add('hidden');
+
+        for (const input of step.querySelectorAll('[data-required]')) {
+            if (!input.value.trim()) {
+                const manual = input.closest('[data-geo-manual]');
+                if (manual) manual.open = true;
+                input.focus();
+                return fail(step, input.dataset.required);
+            }
+        }
+        if (i === 2) {
+            const v = $('[data-datetime]').value;
+            if (!v) return fail(step, 'Choisissez un jour et une heure.');
+            if (new Date(v) <= new Date()) return fail(step, 'Cette heure est deja passee.');
+        }
+        if (i === 5) {
+            const p = parseFloat($('[data-price]').value.replace(',', '.'));
+            if (isNaN(p) || p < 0) return fail(step, 'Le prix doit etre un nombre positif.');
+        }
+        return true;
+    }
+
+    next.addEventListener('click', () => { if (validate(current)) show(current + 1, 1); });
+    prev.addEventListener('click', () => show(current - 1, -1));
+    form.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => show(+b.dataset.goto, -1)));
+
+    // Entree = etape suivante (sauf dans la zone de texte et quand la liste d'adresses est ouverte)
+    form.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' || e.target.tagName === 'TEXTAREA') return;
+        if (e.target.matches('[data-geo-input]') && !e.target.closest('[data-geo]').querySelector('[data-geo-list]').hidden) return;
+        e.preventDefault();
+        if (current < steps.length - 1) next.click(); else form.requestSubmit(submit);
+    });
+
+    // Avant l'envoi on valide tout ; si une etape est invalide, on y retourne
+    form.addEventListener('submit', (e) => {
+        for (let i = 0; i < steps.length; i++) {
+            if (!validate(i)) { e.preventDefault(); show(i, -1); validate(i); return; }
+        }
+        submit.disabled = true;
+        submit.textContent = isEdit ? 'Enregistrement...' : 'Publication...';
+    });
+
+    // ═══════════ AUTOCOMPLETION D'ADRESSE (API Geoplateforme de l'IGN, gratuite) ═══════════
+    form.querySelectorAll('[data-geo]').forEach((box) => {
+        const input  = $('[data-geo-input]', box);
+        const list   = $('[data-geo-list]', box);
+        const city   = $('[data-geo-city-input]', box);
+        const cp     = $('[data-geo-cp-input]', box);
+        const lat    = $('[data-geo-lat]', box);
+        const lng    = $('[data-geo-lng]', box);
+        const picked = $('[data-geo-picked]', box);
+        let timer = null, results = [], active = -1, controller = null;
+
+        const showPicked = () => {
+            picked.hidden = !(city.value && cp.value);
+            $('[data-geo-city]', picked).textContent = city.value;
+            $('[data-geo-cp]', picked).textContent   = cp.value;
+        };
+        showPicked();
+
+        const render = () => {
+            list.innerHTML = '';
+            results.forEach((f, i) => {
+                const p  = f.properties;
+                const li = document.createElement('li');
+                li.innerHTML =
+                    '<button type="button" class="w-full text-left flex items-center gap-3 px-4 py-3 ' + (i === active ? 'bg-cream' : 'hover:bg-cream') + '">' +
+                    '<svg class="w-5 h-5 text-brand/40 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>' +
+                    '<span class="min-w-0"><span class="block text-sm font-semibold text-brand truncate"></span><span class="block text-xs text-brand/50 truncate"></span></span></button>';
+                const spans = li.querySelectorAll('span span');
+                spans[0].textContent = p.name || p.label;
+                spans[1].textContent = [p.postcode, p.city, p.context].filter(Boolean).join(' · ');
+                li.firstChild.addEventListener('mousedown', (e) => { e.preventDefault(); choose(f); });
+                list.appendChild(li);
+            });
+            list.hidden = results.length === 0;
+        };
+
+        const choose = (f) => {
+            const p = f.properties;
+            input.value = p.type === 'municipality' ? p.label : (p.name + ', ' + p.city);
+            city.value  = p.city || p.name || '';
+            cp.value    = p.postcode || '';
+            lng.value   = f.geometry.coordinates[0];
+            lat.value   = f.geometry.coordinates[1];
+            results = []; list.hidden = true;
+            showPicked();
+            picked.classList.remove('pop'); void picked.offsetWidth; picked.classList.add('pop');
+        };
+
+        input.addEventListener('input', () => {
+            // L'utilisateur retape : l'ancienne selection n'est plus valable
+            city.value = ''; cp.value = ''; lat.value = ''; lng.value = '';
+            showPicked();
+            clearTimeout(timer);
+            const q = input.value.trim();
+            if (q.length < 3) { results = []; render(); return; }
+            timer = setTimeout(async () => {
+                if (controller) controller.abort();
+                controller = new AbortController();
+                try {
+                    const r = await fetch('https://data.geopf.fr/geocodage/search?limit=5&autocomplete=1&q=' + encodeURIComponent(q), { signal: controller.signal });
+                    const data = await r.json();
+                    results = data.features || [];
+                    active = -1;
+                    render();
+                } catch (err) {
+                    if (err.name !== 'AbortError') $('[data-geo-manual]', box).open = true; // API indisponible : saisie manuelle
+                }
+            }, 220);
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (list.hidden) return;
+            if (e.key === 'ArrowDown') { e.preventDefault(); active = (active + 1) % results.length; render(); }
+            if (e.key === 'ArrowUp')   { e.preventDefault(); active = (active - 1 + results.length) % results.length; render(); }
+            // stopPropagation : Entree choisit l'adresse SANS passer a l'etape suivante
+            if (e.key === 'Enter')     { e.preventDefault(); e.stopPropagation(); choose(results[Math.max(active, 0)]); }
+            if (e.key === 'Escape')    { list.hidden = true; }
+        });
+        input.addEventListener('blur', () => setTimeout(() => { list.hidden = true; }, 120));
+        [city, cp].forEach((el) => el.addEventListener('input', showPicked));
+    });
+
+    // ═══════════ DATE + HEURE -> champ departureAt ═══════════
+    const dt        = $('[data-datetime]');
+    const dateInput = $('[data-date-input]');
+    const timeInput = $('[data-time-input]');
+    const pad = (n) => String(n).padStart(2, '0');
+    const iso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    const dayFrom = (offset) => { const d = new Date(); d.setDate(d.getDate() + offset); return d; };
+
+    $('[data-day-label]').textContent = DAYS[dayFrom(2).getDay()].replace(/^./, (c) => c.toUpperCase()) + ' ' + dayFrom(2).getDate();
+
+    if (dt.value) { [dateInput.value, timeInput.value] = dt.value.slice(0, 16).split('T'); }
+
+    const syncDate = () => {
+        dt.value = dateInput.value && timeInput.value ? dateInput.value + 'T' + timeInput.value : '';
+        form.querySelectorAll('[data-day-offset]').forEach((b) => b.setAttribute('aria-pressed', String(iso(dayFrom(+b.dataset.dayOffset)) === dateInput.value)));
+        form.querySelectorAll('[data-time-chip]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.timeChip === timeInput.value)));
+        const summary = $('[data-date-summary]');
+        if (dt.value) {
+            summary.closest('[data-step]').querySelector('[data-step-error]').classList.add('hidden');
+            const d = new Date(dt.value);
+            summary.innerHTML = 'Depart le <strong class="text-brand">' + DAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()] + '</strong> a <strong class="text-brand">' + timeInput.value.replace(':', 'h') + '</strong>';
+        } else {
+            summary.textContent = '';
+        }
+    };
+    form.querySelectorAll('[data-day-offset]').forEach((b) => b.addEventListener('click', () => { dateInput.value = iso(dayFrom(+b.dataset.dayOffset)); syncDate(); }));
+    form.querySelectorAll('[data-time-chip]').forEach((b) => b.addEventListener('click', () => { timeInput.value = b.dataset.timeChip; syncDate(); }));
+    [dateInput, timeInput].forEach((el) => el.addEventListener('input', syncDate));
+    syncDate();
+
+    // ═══════════ VEHICULE + PLACES ═══════════
+    const seatsInput = $('[data-seats-input]');
+    const radios     = [...form.querySelectorAll('[data-vehicle-radio]')];
+    const maxSeats   = () => { const r = radios.find((x) => x.checked); return r ? Math.max(1, (+r.dataset.seats || 5) - 1) : 8; };
+
+    const paintVehicles = () => radios.forEach((r) => {
+        const dot = r.parentElement.querySelector('[data-vehicle-dot]');
+        dot.innerHTML = r.checked ? '<span class="w-3 h-3 rounded-full bg-brand"></span>' : '';
+        dot.classList.toggle('border-brand', r.checked);
+    });
+    radios.forEach((r) => r.addEventListener('change', () => { paintVehicles(); setSeats(+seatsInput.value); }));
+    const none = $('[data-vehicle-none]');
+    if (none) none.addEventListener('click', () => { radios.forEach((r) => { r.checked = false; }); paintVehicles(); setSeats(+seatsInput.value); });
+    paintVehicles();
+
+    const setSeats = (n) => {
+        const max = maxSeats();
+        n = Math.max(1, Math.min(n || 1, max));
+        seatsInput.value = n;
+        const display = $('[data-seats-display]');
+        if (display.textContent !== String(n)) { display.textContent = n; display.classList.remove('pop'); void display.offsetWidth; display.classList.add('pop'); }
+        $('[data-seats-word]').textContent = n > 1 ? 'places' : 'place';
+        $('[data-seats-minus]').disabled = n <= 1;
+        $('[data-seats-plus]').disabled  = n >= max;
+        $('[data-seats-hint]').textContent = radios.some((r) => r.checked) ? 'Maximum ' + max + ' avec ce vehicule (conducteur non compte).' : 'Maximum 8 places.';
+        refreshTotal();
+    };
+    $('[data-seats-minus]').addEventListener('click', () => setSeats(+seatsInput.value - 1));
+    $('[data-seats-plus]').addEventListener('click',  () => setSeats(+seatsInput.value + 1));
+
+    // ═══════════ PRIX (+ prix conseille selon la distance) ═══════════
+    const priceInput = $('[data-price]');
+    let suggested = null;
+
+    const readPrice = () => parseFloat((priceInput.value || '0').replace(',', '.')) || 0;
+    function refreshTotal() {
+        const p = readPrice(), n = +seatsInput.value || 1;
+        $('[data-price-total]').textContent = p > 0 ? 'Jusqu\'a ' + euro(p * n * 0.9) + ' pour vous si les ' + n + ' place' + (n > 1 ? 's sont prises' : ' est prise') + ' (apres frais de 10 %).' : 'Trajet gratuit : merci pour vos passagers !';
+    }
+    form.querySelectorAll('[data-price-step]').forEach((b) => b.addEventListener('click', () => {
+        priceInput.value = Math.max(0, readPrice() + parseFloat(b.dataset.priceStep)).toFixed(2).replace(/\.00$/, '');
+        refreshTotal();
+    }));
+    priceInput.addEventListener('input', refreshTotal);
+
+    function distanceKm() {
+        const g = (name) => parseFloat((form.querySelector('[name$="[' + name + ']"]') || {}).value);
+        const [la1, lo1, la2, lo2] = [g('departureLat'), g('departureLng'), g('arrivalLat'), g('arrivalLng')];
+        if ([la1, lo1, la2, lo2].some(isNaN)) return null;
+        const R = 6371, rad = (x) => x * Math.PI / 180;
+        const a = Math.sin(rad(la2 - la1) / 2) ** 2 + Math.cos(rad(la1)) * Math.cos(rad(la2)) * Math.sin(rad(lo2 - lo1) / 2) ** 2;
+        return 2 * R * Math.asin(Math.sqrt(a)) * 1.3; // x1.3 : la route n'est jamais en ligne droite
+    }
+    function refreshRouteInfo() {
+        const km = distanceKm();
+        const info = $('[data-route-info]');
+        if (km === null) { $('[data-price-suggest]').hidden = true; return; }
+        const minutes = Math.round(km / 80 * 60);
+        info.textContent = 'Environ ' + Math.round(km) + ' km · ' + (minutes >= 60 ? Math.floor(minutes / 60) + ' h ' + pad(minutes % 60) : minutes + ' min') + ' de route.';
+        suggested = Math.max(2, Math.round(km * 0.065 * 2) / 2); // ~6,5 cts/km, arrondi a 0,50
+        $('[data-price-suggest-value]').textContent = euro(suggested);
+        $('[data-price-suggest]').hidden = false;
+        if (!priceInput.value) { priceInput.value = suggested.toFixed(2); refreshTotal(); }
+    }
+    $('[data-price-apply]').addEventListener('click', () => { priceInput.value = suggested.toFixed(2); refreshTotal(); });
+
+    setSeats(+seatsInput.value || 3);
+
+    // ═══════════ RECAPITULATIF ═══════════
+    function buildRecap() {
+        const val = (name) => (form.querySelector('[name$="[' + name + ']"]') || {}).value || '';
+        const d = new Date(dt.value);
+        $('[data-recap-date]').textContent = DAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+        $('[data-recap-time]').textContent = timeInput.value;
+        $('[data-recap-from-city]').textContent = val('departureCity');
+        $('[data-recap-from]').textContent      = val('departureAddress');
+        $('[data-recap-to-city]').textContent   = val('arrivalCity');
+        $('[data-recap-to]').textContent        = val('arrivalAddress');
+        const n = +seatsInput.value;
+        $('[data-recap-seats]').textContent = n + ' place' + (n > 1 ? 's' : '');
+        $('[data-recap-price]').textContent = readPrice() > 0 ? euro(readPrice()) + ' / passager' : 'Gratuit';
+        const v = radios.find((r) => r.checked);
+        $('[data-recap-vehicle]').textContent = v ? v.closest('label').querySelector('.text-base').textContent : 'Non precise';
+        const lug = form.querySelector('[data-luggage-radio]:checked');
+        const comfort = [lug ? lug.nextElementSibling.textContent.trim() : null, $('[data-highway]').checked ? 'Sans autoroute' : null].filter(Boolean);
+        $('[data-recap-comfort]').textContent = comfort.length ? comfort.join(' · ') : 'Rien de special';
+    }
+
+    // ═══════════ DEMARRAGE ═══════════
+    // Si Symfony a renvoye des erreurs, on ouvre directement la premiere etape concernee
+    const errorStep = steps.findIndex((s) => s.querySelector('.form-error li'));
+    steps[0].hidden = false;
+    show(errorStep >= 0 ? errorStep : (isEdit ? steps.length - 1 : 0), 1);
+})();
+</script>

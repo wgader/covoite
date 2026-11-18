@@ -1,0 +1,279 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Plan de route — {{ trip.departureCity }} → {{ trip.arrivalCity }} — Covoite{% endblock %}
+
+{% block body %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+
+    {# ── EN-TETE ───────────────────────────────────────────── #}
+    <a href="{{ path('app_rides', {onglet: bucket}) }}"
+       class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand/50 hover:text-brand transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Mes trajets
+    </a>
+
+    <div class="flex items-center justify-between gap-3 mt-4">
+        <h1 class="text-3xl font-extrabold text-brand tracking-tight">Plan de route</h1>
+        {% if trip.status.value == 'cancelled' %}
+            <span class="text-xs font-bold px-3 py-1.5 rounded-full bg-red-50 text-red-600">Annule</span>
+        {% elseif trip.status.value == 'completed' %}
+            <span class="text-xs font-bold px-3 py-1.5 rounded-full bg-cream border border-black/10 text-brand/60">Termine</span>
+        {% elseif needsClosing %}
+            <span class="text-xs font-bold px-3 py-1.5 rounded-full bg-amber-50 text-amber-700">A cloturer</span>
+        {% elseif trip.status.value == 'full' %}
+            <span class="text-xs font-bold px-3 py-1.5 rounded-full bg-brand text-cream">Complet</span>
+        {% else %}
+            <span class="text-xs font-bold px-3 py-1.5 rounded-full bg-lime-soft text-brand">Publie</span>
+        {% endif %}
+    </div>
+
+    {# ── BANDEAUX D'ETAT ───────────────────────────────────── #}
+    {% if needsClosing %}
+        <div class="mt-5 bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div class="flex-1">
+                <p class="text-sm font-bold text-amber-900">L'heure de depart est passee</p>
+                <p class="text-sm text-amber-800/80 mt-0.5">Confirmez que le trajet a bien eu lieu pour debloquer les avis.</p>
+            </div>
+            <form method="post" action="{{ path('app_trip_complete', {id: trip.id}) }}"
+                  data-confirm="Les passagers confirmes pourront ensuite vous laisser un avis. Les demandes sans reponse seront annulees."
+                  data-confirm-title="Le trajet a bien eu lieu ?"
+                  data-confirm-button="Oui, terminer le trajet">
+                <input type="hidden" name="_token" value="{{ csrf_token('complete-trip-' ~ trip.id) }}">
+                <button class="w-full sm:w-auto bg-brand text-cream text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-brand-light transition">
+                    Marquer comme termine
+                </button>
+            </form>
+        </div>
+    {% elseif not isUpcoming %}
+        <div class="mt-5 bg-white border border-black/5 rounded-2xl p-4 flex items-center gap-3">
+            <span class="w-9 h-9 rounded-full bg-cream text-brand/50 flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+            </span>
+            <p class="text-sm text-brand/60">
+                {% if trip.status.value == 'cancelled' %}Ce trajet a ete annule.{% else %}Ce trajet est termine.{% endif %}
+                Il ne peut plus etre modifie.
+            </p>
+        </div>
+    {% endif %}
+
+    {# ── ITINERAIRE ────────────────────────────────────────── #}
+    <section class="mt-6 border-t border-black/10 pt-6">
+        <p class="text-lg font-extrabold text-brand first-letter:uppercase">{{ trip.departureAt|date_fr('long_year') }}</p>
+
+        <div class="flex gap-4 mt-4">
+            <div class="w-12 shrink-0 pt-0.5">
+                <p class="text-sm font-bold text-brand">{{ trip.departureAt|date('H:i') }}</p>
+            </div>
+            <div class="flex flex-col items-center pt-1.5">
+                <span class="w-3 h-3 rounded-full border-2 border-brand bg-white"></span>
+                <span class="w-0.5 flex-1 bg-brand my-1"></span>
+                <span class="w-3 h-3 rounded-full border-2 border-brand bg-white"></span>
+            </div>
+            <div class="flex flex-col gap-6 min-w-0">
+                <div>
+                    <p class="text-sm font-bold text-brand flex items-center gap-1 -my-1">{{ trip.departureCity }} {% include 'trip/_map_button.html.twig' with {focus: 'from'} %}</p>
+                    <p class="text-xs text-brand/50 mt-0.5">{{ trip.departureAddress }}</p>
+                </div>
+                <div>
+                    <p class="text-sm font-bold text-brand flex items-center gap-1 -my-1">{{ trip.arrivalCity }} {% include 'trip/_map_button.html.twig' with {focus: 'to'} %}</p>
+                    <p class="text-xs text-brand/50 mt-0.5">{{ trip.arrivalAddress }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap gap-2 mt-5">
+            <span class="inline-flex items-center gap-1.5 text-xs font-medium text-brand bg-white border border-black/10 px-3 py-1.5 rounded-full">
+                {{ trip.availableSeats }} place{{ trip.availableSeats > 1 ? 's' }} restante{{ trip.availableSeats > 1 ? 's' }}
+            </span>
+            <span class="inline-flex items-center gap-1.5 text-xs font-medium text-brand bg-white border border-black/10 px-3 py-1.5 rounded-full">
+                {{ trip.price|number_format(2, ',', ' ') }} &euro; / place
+            </span>
+            {% if trip.vehicle %}
+                <span class="inline-flex items-center gap-1.5 text-xs font-medium text-brand bg-white border border-black/10 px-3 py-1.5 rounded-full">
+                    {{ trip.vehicle.brand }} {{ trip.vehicle.model }}
+                </span>
+            {% endif %}
+            {% if trip.luggageAllowed %}
+                <span class="inline-flex items-center gap-1.5 text-xs font-medium text-brand bg-white border border-black/10 px-3 py-1.5 rounded-full">
+                    {{ trip.luggageAllowed|luggage_label }}
+                </span>
+            {% endif %}
+        </div>
+    </section>
+
+    {# ── DEMANDES EN ATTENTE ───────────────────────────────── #}
+    {% if isUpcoming and pending is not empty %}
+        <section class="mt-8">
+            <h2 class="text-sm font-bold text-brand flex items-center gap-2">
+                Demandes a traiter
+                <span class="bg-lime text-brand text-[11px] font-bold px-2 py-0.5 rounded-full">{{ pending|length }}</span>
+            </h2>
+            <div class="mt-3 space-y-2">
+                {% for b in pending %}
+                    {% set p = b.passenger %}
+                    <div class="bg-white rounded-2xl border border-lime/40 shadow-card p-4">
+                        <div class="flex items-center gap-3">
+                            <a href="{{ path('app_profile_show', {id: p.id}) }}" class="shrink-0">
+                                {% if p.avatar %}
+                                    <img src="{{ p.avatar }}" alt="" class="w-11 h-11 rounded-full object-cover">
+                                {% else %}
+                                    <span class="w-11 h-11 rounded-full bg-brand text-lime text-sm font-bold flex items-center justify-center">{{ p.firstName|first|upper }}</span>
+                                {% endif %}
+                            </a>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-bold text-brand">{{ p.firstName }} {{ p.lastName|first }}.</p>
+                                <p class="text-xs text-brand/50">{{ b.seats }} place{{ b.seats > 1 ? 's' }} · {{ b.amount|number_format(2, ',', ' ') }} &euro; · demande le {{ b.createdAt|date('d/m') }}</p>
+                            </div>
+                            <a href="{{ path('app_message_thread', {id: p.id, trip: trip.id}) }}" aria-label="Ecrire a {{ p.firstName }}"
+                               class="w-9 h-9 rounded-full border border-black/10 text-brand/60 hover:text-brand hover:border-brand/30 flex items-center justify-center transition shrink-0">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            </a>
+                        </div>
+                        {% if b.message %}
+                            <p class="mt-3 text-sm text-brand/70 bg-cream rounded-xl px-3.5 py-2.5 leading-relaxed">{{ b.message }}</p>
+                        {% endif %}
+                        <div class="grid grid-cols-2 gap-2 mt-3">
+                            <form method="post" action="{{ path('app_booking_refuse', {id: b.id}) }}"
+                                  data-confirm="{{ p.firstName }} sera prevenu(e) que sa demande n'a pas ete retenue."
+                                  data-confirm-title="Refuser cette demande ?"
+                                  data-confirm-button="Refuser"
+                                  data-confirm-tone="danger">
+                                <input type="hidden" name="_token" value="{{ csrf_token('refuse-booking-' ~ b.id) }}">
+                                <button class="w-full text-sm font-semibold text-brand border border-black/10 hover:border-red-300 hover:text-red-600 py-2.5 rounded-full transition">Refuser</button>
+                            </form>
+                            <form method="post" action="{{ path('app_booking_confirm', {id: b.id}) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('confirm-booking-' ~ b.id) }}">
+                                <button class="w-full text-sm font-semibold bg-lime hover:bg-lime-hover text-brand py-2.5 rounded-full transition">Accepter</button>
+                            </form>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+
+    {# ── PASSAGERS ─────────────────────────────────────────── #}
+    <section class="mt-8 border-t border-black/10">
+        {% if confirmed is empty %}
+            <div class="flex items-center gap-3 py-5">
+                <svg class="w-6 h-6 text-brand/40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 17h14M5 17a2 2 0 1 0 4 0M15 17a2 2 0 1 0 4 0M3 17v-4l2-5a2 2 0 0 1 1.9-1.4h10.2A2 2 0 0 1 19 8l2 5v4"/></svg>
+                <p class="text-sm text-brand/60">Aucun passager pour ce trajet</p>
+            </div>
+        {% else %}
+            {% for b in confirmed %}
+                {% set p = b.passenger %}
+                <div class="flex items-center gap-3 py-4 border-b border-black/5">
+                    <a href="{{ path('app_profile_show', {id: p.id}) }}" class="flex items-center gap-3 min-w-0 flex-1 group">
+                        {% if p.avatar %}
+                            <img src="{{ p.avatar }}" alt="" class="w-12 h-12 rounded-full object-cover shrink-0">
+                        {% else %}
+                            <span class="w-12 h-12 rounded-full bg-brand text-lime font-bold flex items-center justify-center shrink-0">{{ p.firstName|first|upper }}</span>
+                        {% endif %}
+                        <span class="min-w-0">
+                            <span class="block text-sm font-bold text-brand group-hover:underline">{{ p.firstName }} {{ p.lastName|first }}.</span>
+                            <span class="block text-xs text-brand/50 truncate">{{ trip.departureCity }} → {{ trip.arrivalCity }} · {{ b.seats }} place{{ b.seats > 1 ? 's' }}</span>
+                        </span>
+                    </a>
+
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        {% if trip.status.value == 'completed' and b.status.value == 'completed' and b.id not in reviewedBookingIds %}
+                            <a href="{{ path('app_review_create', {id: b.id}) }}"
+                               class="text-xs font-semibold bg-lime hover:bg-lime-hover text-brand px-3.5 py-2 rounded-full transition">Noter</a>
+                        {% elseif b.id in reviewedBookingIds %}
+                            <span class="text-xs font-semibold text-brand/40 px-2">Note</span>
+                        {% endif %}
+
+                        <a href="{{ path('app_message_thread', {id: p.id, trip: trip.id}) }}" aria-label="Ecrire a {{ p.firstName }}"
+                           class="w-9 h-9 rounded-full border border-black/10 text-brand/60 hover:text-brand hover:border-brand/30 flex items-center justify-center transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        </a>
+
+                        {% if isUpcoming %}
+                            <form method="post" action="{{ path('app_booking_cancel_driver', {id: b.id}) }}"
+                                  data-confirm="{{ b.seats > 1 ? 'Ses ' ~ b.seats ~ ' places seront remises' : 'Sa place sera remise' }} en ligne. Pensez a lui expliquer pourquoi."
+                                  data-confirm-title="Retirer {{ p.firstName }} du trajet ?"
+                                  data-confirm-button="Retirer le passager"
+                                  data-confirm-tone="danger"
+                                  data-confirm-reason="Motif (visible par le passager)">
+                                <input type="hidden" name="_token" value="{{ csrf_token('cancel-booking-driver-' ~ b.id) }}">
+                                <button aria-label="Retirer {{ p.firstName }}"
+                                        class="w-9 h-9 rounded-full border border-black/10 text-brand/60 hover:text-red-600 hover:border-red-200 flex items-center justify-center transition">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M3 21v-1a6 6 0 0 1 12 0v1M17 11h5"/></svg>
+                                </button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </section>
+
+    {# ── TOTAL ─────────────────────────────────────────────── #}
+    <section class="mt-2 bg-white rounded-2xl border border-black/5 shadow-card p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-bold text-brand">Prix total</p>
+                <p class="text-xs text-brand/50 mt-0.5">{{ confirmed|length }} passager{{ confirmed|length > 1 ? 's' }}</p>
+            </div>
+            <p class="text-2xl font-extrabold text-brand">{{ total|number_format(2, ',', ' ') }} &euro;</p>
+        </div>
+        <div class="flex items-center justify-between mt-3 pt-3 border-t border-black/5">
+            <p class="text-xs text-brand/50">Vos gains apres frais de service (10 %)</p>
+            <p class="text-sm font-bold text-brand">{{ earnings|number_format(2, ',', ' ') }} &euro;</p>
+        </div>
+    </section>
+
+    {# ── ACTIONS ───────────────────────────────────────────── #}
+    <section class="mt-6 bg-white rounded-2xl border border-black/5 shadow-card divide-y divide-black/5 overflow-hidden">
+        {% if isUpcoming %}
+            <a href="{{ path('app_trip_edit', {id: trip.id}) }}" class="flex items-center justify-between px-5 py-4 hover:bg-cream/60 transition">
+                <span>
+                    <span class="block text-sm font-bold text-brand">Modifier votre trajet</span>
+                    <span class="block text-xs text-brand/50 mt-0.5">Horaire, adresses, prix, places, vehicule</span>
+                </span>
+                <svg class="w-5 h-5 text-brand/40" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+        {% endif %}
+
+        <a href="{{ path('app_trip_show', {id: trip.id}) }}" class="flex items-center justify-between px-5 py-4 hover:bg-cream/60 transition">
+            <span>
+                <span class="block text-sm font-bold text-brand">Voir l'annonce</span>
+                <span class="block text-xs text-brand/50 mt-0.5">Telle que les passagers la voient</span>
+            </span>
+            <svg class="w-5 h-5 text-brand/40" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+
+        {% if isUpcoming %}
+            <form method="post" action="{{ path('app_trip_cancel', {id: trip.id}) }}"
+                  data-confirm="{{ confirmed is empty and pending is empty ? 'L\'annonce sera retiree.' : 'Toutes les reservations seront annulees et vos passagers prevenus.' }} Cette action est definitive."
+                  data-confirm-title="Annuler ce trajet ?"
+                  data-confirm-button="Oui, annuler le trajet"
+                  data-confirm-tone="danger">
+                <input type="hidden" name="_token" value="{{ csrf_token('cancel-trip-' ~ trip.id) }}">
+                <button class="w-full flex items-center justify-between px-5 py-4 hover:bg-red-50/60 transition text-left">
+                    <span class="text-sm font-bold text-red-600">Annuler le trajet</span>
+                    <svg class="w-5 h-5 text-red-300" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+            </form>
+        {% endif %}
+    </section>
+
+    {% if cancelled is not empty %}
+        <details class="mt-6 group">
+            <summary class="cursor-pointer text-xs font-semibold text-brand/40 hover:text-brand/70 list-none">
+                Voir les {{ cancelled|length }} reservation{{ cancelled|length > 1 ? 's' }} annulee{{ cancelled|length > 1 ? 's' }}
+            </summary>
+            <ul class="mt-3 space-y-1.5">
+                {% for b in cancelled %}
+                    <li class="text-xs text-brand/50">
+                        {{ b.passenger.firstName }} {{ b.passenger.lastName|first }}. ·
+                        {% if b.cancelledBy and b.cancelledBy.value == 'passenger' %}annulee par le passager{% else %}annulee par vous{% endif %}
+                        {% if b.cancelledAt %}le {{ b.cancelledAt|date('d/m') }}{% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        </details>
+    {% endif %}
+</div>
+{% include 'trip/_route_map.html.twig' %}
+{% endblock %}

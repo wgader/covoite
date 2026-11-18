@@ -3,76 +3,74 @@
 {% block title %}{{ title }} — Covoite{% endblock %}
 
 {% block body %}
-<div class="max-w-2xl mx-auto px-6 py-10">
+<div class="max-w-2xl mx-auto px-4 sm:px-6 py-10">
 
-    <div class="flex items-center gap-4 mb-8">
-        <a href="{{ path('app_vehicle_index') }}"
-           class="w-9 h-9 rounded-xl bg-white border border-black/8 flex items-center justify-center hover:border-brand/20 transition">
-            <svg class="w-4 h-4 text-brand" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
-            </svg>
-        </a>
-        <h1 class="text-2xl font-extrabold text-brand">{{ title }}</h1>
-    </div>
+    <a href="{{ path('app_vehicle_index') }}"
+       class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand/50 hover:text-brand transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Mes vehicules
+    </a>
 
-    {{ form_start(vehicleForm, {attr: {class: 'space-y-6', novalidate: 'novalidate'}}) }}
+    <h1 class="text-3xl font-extrabold text-brand tracking-tight mt-4">{{ title }}</h1>
 
-        {# INFOS VEHICULE #}
-        <div class="bg-white border border-black/6 rounded-2xl p-6">
-            <h2 class="font-bold text-brand mb-5 text-sm uppercase tracking-wide">Informations</h2>
-            <div class="grid sm:grid-cols-2 gap-4">
-                <div>
-                    {{ form_label(vehicleForm.brand, null, {label_attr: {class: 'block text-xs font-semibold text-brand/50 uppercase tracking-wide mb-1.5'}}) }}
-                    {{ form_widget(vehicleForm.brand, {attr: {class: 'w-full bg-cream border border-black/8 rounded-xl px-4 py-3 text-sm text-brand outline-none focus:border-lime transition'}}) }}
-                    {{ form_errors(vehicleForm.brand) }}
-                </div>
-                <div>
-                    {{ form_label(vehicleForm.model, null, {label_attr: {class: 'block text-xs font-semibold text-brand/50 uppercase tracking-wide mb-1.5'}}) }}
-                    {{ form_widget(vehicleForm.model, {attr: {class: 'w-full bg-cream border border-black/8 rounded-xl px-4 py-3 text-sm text-brand outline-none focus:border-lime transition'}}) }}
-                    {{ form_errors(vehicleForm.model) }}
-                </div>
-                <div>
-                    {{ form_label(vehicleForm.color, null, {label_attr: {class: 'block text-xs font-semibold text-brand/50 uppercase tracking-wide mb-1.5'}}) }}
-                    {{ form_widget(vehicleForm.color, {attr: {class: 'w-full bg-cream border border-black/8 rounded-xl px-4 py-3 text-sm text-brand outline-none focus:border-lime transition'}}) }}
-                    {{ form_errors(vehicleForm.color) }}
-                </div>
-                <div>
-                    {{ form_label(vehicleForm.seats, null, {label_attr: {class: 'block text-xs font-semibold text-brand/50 uppercase tracking-wide mb-1.5'}}) }}
-                    {{ form_widget(vehicleForm.seats, {attr: {class: 'w-full bg-cream border border-black/8 rounded-xl px-4 py-3 text-sm text-brand outline-none focus:border-lime transition'}}) }}
-                    {% if vehicleForm.seats.vars.help is defined %}
-                        <p class="text-xs text-brand/40 mt-1">{{ vehicleForm.seats.vars.help }}</p>
-                    {% endif %}
-                    {{ form_errors(vehicleForm.seats) }}
-                </div>
-                <div class="sm:col-span-2">
-                    {{ form_label(vehicleForm.trunkSize, null, {label_attr: {class: 'block text-xs font-semibold text-brand/50 uppercase tracking-wide mb-1.5'}}) }}
-                    {{ form_widget(vehicleForm.trunkSize, {attr: {class: 'bg-cream border border-black/8 rounded-xl px-4 py-3 text-sm text-brand outline-none focus:border-lime transition cursor-pointer'}}) }}
-                    {{ form_errors(vehicleForm.trunkSize) }}
-                </div>
+    {{ form_start(vehicleForm, {attr: {class: 'space-y-4 mt-6', novalidate: 'novalidate'}}) }}
+
+        {# ── INFORMATIONS ── #}
+        <section class="bg-white rounded-3xl border border-black/5 shadow-card p-6 sm:p-8">
+            <h2 class="text-base font-extrabold text-brand">Le vehicule</h2>
+            <div class="grid sm:grid-cols-2 gap-4 mt-5">
+                {% for field in [vehicleForm.brand, vehicleForm.model, vehicleForm.color, vehicleForm.seats] %}
+                    <div>
+                        {{ form_label(field, null, {label_attr: {class: 'field-label'}}) }}
+                        {{ form_widget(field, {attr: {class: 'field'}}) }}
+                        <div class="form-error">{{ form_errors(field) }}</div>
+                    </div>
+                {% endfor %}
             </div>
-        </div>
+        </section>
 
-        {# OPTIONS #}
-        <div class="bg-white border border-black/6 rounded-2xl p-6">
-            <h2 class="font-bold text-brand mb-5 text-sm uppercase tracking-wide">Options</h2>
-            <div class="space-y-3">
-                {% for field in [vehicleForm.isElectric, vehicleForm.hasAc, vehicleForm.hasUsb, vehicleForm.isDefault] %}
-                    <label class="flex items-center gap-3 cursor-pointer group">
-                        {{ form_widget(field, {attr: {class: 'w-4 h-4 accent-lime cursor-pointer'}}) }}
-                        <span class="text-sm text-brand font-medium">{{ form_label(field) }}</span>
+        {# ── COFFRE : choix en "pastilles" (radio) ── #}
+        <section class="bg-white rounded-3xl border border-black/5 shadow-card p-6 sm:p-8">
+            <h2 class="text-base font-extrabold text-brand">Taille du coffre</h2>
+            <div class="flex flex-wrap gap-2 mt-4">
+                {% for choice in vehicleForm.trunkSize %}
+                    <label class="cursor-pointer">
+                        {{ form_widget(choice, {attr: {class: 'peer sr-only'}}) }}
+                        <span class="inline-block text-sm font-semibold px-4 py-2 rounded-full border border-black/10 text-brand/70 transition
+                                     peer-checked:bg-brand peer-checked:text-cream peer-checked:border-brand peer-focus-visible:ring-4 peer-focus-visible:ring-lime/30 hover:border-brand/30">
+                            {{ choice.vars.label }}
+                        </span>
                     </label>
                 {% endfor %}
             </div>
-        </div>
+            <div class="form-error">{{ form_errors(vehicleForm.trunkSize) }}</div>
+        </section>
 
-        <div class="flex gap-3 justify-end">
+        {# ── OPTIONS : interrupteurs ── #}
+        <section class="bg-white rounded-3xl border border-black/5 shadow-card px-6 sm:px-8 py-2 divide-y divide-black/5">
+            {% for field in [vehicleForm.isElectric, vehicleForm.hasAc, vehicleForm.hasUsb, vehicleForm.isDefault] %}
+                <label class="flex items-center justify-between py-4 cursor-pointer">
+                    <span>
+                        <span class="block text-sm font-semibold text-brand">{{ field.vars.label }}</span>
+                        {% if field.vars.name == 'isDefault' %}
+                            <span class="block text-xs text-brand/50 mt-0.5">Pre-selectionne quand vous publiez un trajet</span>
+                        {% endif %}
+                    </span>
+                    {{ form_widget(field, {attr: {class: 'peer sr-only'}}) }}
+                    <span class="relative w-11 h-6 shrink-0 rounded-full bg-black/15 transition peer-checked:bg-lime peer-focus-visible:ring-4 peer-focus-visible:ring-lime/30
+                                 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5 after:rounded-full after:bg-white after:shadow after:transition peer-checked:after:translate-x-5"></span>
+                </label>
+            {% endfor %}
+        </section>
+
+        <div class="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-2">
             <a href="{{ path('app_vehicle_index') }}"
-               class="px-6 py-3 rounded-xl border-2 border-brand text-brand font-semibold text-sm hover:bg-brand hover:text-cream transition">
+               class="text-center px-6 py-3 rounded-full border border-brand/15 text-brand font-semibold text-sm hover:bg-white transition">
                 Annuler
             </a>
             <button type="submit"
-                    class="px-6 py-3 rounded-xl bg-lime hover:bg-lime-hover text-brand font-semibold text-sm transition">
-                {% if vehicle %}Enregistrer{% else %}Ajouter le vehicule{% endif %}
+                    class="px-6 py-3 rounded-full bg-lime hover:bg-lime-hover text-brand font-semibold text-sm transition">
+                {{ vehicle ? 'Enregistrer' : 'Ajouter le vehicule' }}
             </button>
         </div>
 

@@ -1,0 +1,125 @@
+{#
+    Fenetre "Itineraire" avec la carte Symfony UX Map (Leaflet).
+    Variables : tripMap (App\Service\TripMapFactory, peut etre null), trip
+    S'ouvre avec n'importe quel bouton data-modal-open="route-map" (voir _map_button.html.twig).
+#}
+{% if tripMap %}
+<div id="route-map" role="dialog" aria-modal="true" aria-labelledby="route-map-title" hidden
+     class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-6">
+    <div data-modal-backdrop class="anim-fade absolute inset-0 bg-brand/40 backdrop-blur-sm"></div>
+
+    <div class="anim-modal relative w-full max-w-4xl bg-white rounded-t-3xl sm:rounded-3xl shadow-pop overflow-hidden flex flex-col h-[88dvh] sm:h-[78vh]">
+
+        {# ── En-tete ── #}
+        <div class="flex items-center gap-3 px-5 sm:px-6 py-4 border-b border-black/5">
+            <div class="flex-1 min-w-0">
+                <h2 id="route-map-title" class="text-lg font-extrabold text-brand truncate">
+                    {{ trip.departureCity }} &rarr; {{ trip.arrivalCity }}
+                </h2>
+                <p data-route-info class="text-xs text-brand/50 mt-0.5">Calcul de l'itineraire...</p>
+            </div>
+            <button type="button" data-modal-close aria-label="Fermer la carte"
+                    class="w-10 h-10 rounded-full bg-cream text-brand/60 hover:text-brand flex items-center justify-center transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" stroke-linecap="round"/></svg>
+            </button>
+        </div>
+
+        {# ── La carte (Symfony UX Map) ── #}
+        <div class="relative flex-1 bg-cream">
+            {{ ux_map(tripMap, {class: 'absolute inset-0', 'data-route-map': ''}) }}
+
+            {# Boutons pour se centrer sur un point #}
+            <div class="absolute left-3 bottom-3 z-[500] flex gap-2">
+                <button type="button" data-map-goto="from" class="bg-white/95 backdrop-blur shadow-card text-xs font-semibold text-brand px-3.5 py-2 rounded-full hover:bg-white">Depart</button>
+                <button type="button" data-map-goto="route" class="bg-white/95 backdrop-blur shadow-card text-xs font-semibold text-brand px-3.5 py-2 rounded-full hover:bg-white">Tout le trajet</button>
+                <button type="button" data-map-goto="to" class="bg-white/95 backdrop-blur shadow-card text-xs font-semibold text-brand px-3.5 py-2 rounded-full hover:bg-white">Arrivee</button>
+            </div>
+        </div>
+
+        {# ── Bas : adresses + ouvrir dans une appli GPS ── #}
+        <div class="grid sm:grid-cols-[1fr_1fr_auto] gap-3 sm:gap-5 sm:items-center px-5 sm:px-6 py-4 border-t border-black/5">
+            <div class="flex items-start gap-3 min-w-0">
+                <span class="mt-1 w-3 h-3 rounded-full border-[2.5px] border-brand shrink-0"></span>
+                <div class="min-w-0">
+                    <p class="text-sm font-bold text-brand truncate">{{ trip.departureAt|date('H:i') }} · {{ trip.departureCity }}</p>
+                    <p class="text-xs text-brand/50 truncate">{{ trip.departureAddress }}</p>
+                </div>
+            </div>
+            <div class="flex items-start gap-3 min-w-0">
+                <span class="mt-1 w-3 h-3 rounded-full bg-brand shrink-0"></span>
+                <div class="min-w-0">
+                    <p class="text-sm font-bold text-brand truncate">{{ trip.arrivalCity }}</p>
+                    <p class="text-xs text-brand/50 truncate">{{ trip.arrivalAddress }}</p>
+                </div>
+            </div>
+            <a href="https://www.google.com/maps/dir/?api=1&origin={{ trip.departureLat }},{{ trip.departureLng }}&destination={{ trip.arrivalLat }},{{ trip.arrivalLng }}&travelmode=driving"
+               target="_blank" rel="noopener"
+               class="inline-flex items-center justify-center gap-2 text-sm font-semibold bg-brand hover:bg-brand-light text-cream px-5 py-2.5 rounded-full transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m3 11 18-8-8 18-2-8z"/></svg>
+                Ouvrir le GPS
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+/* Pilote la carte UX Map de la fenetre "Itineraire" :
+   - trace la vraie route (service OSRM, gratuit, base sur OpenStreetMap)
+   - recadre la carte a l'ouverture (Leaflet ne connait pas sa taille tant que la fenetre est cachee) */
+(() => {
+    const modal = document.getElementById('route-map');
+    let map = null, L = null, route = null, bounds = null, pending = 'route';
+
+    const focus = (target) => {
+        if (!map) { pending = target; return; }
+        map.invalidateSize();
+        if (target === 'from' || target === 'to') {
+            map.flyTo(route[target], 15, { duration: .6 });
+        } else {
+            map.fitBounds(bounds, { padding: [48, 48] });
+        }
+    };
+
+    // Evenement envoye par Symfony UX Map quand la carte Leaflet est prete
+    modal.addEventListener('ux:map:connect', async (e) => {
+        map   = e.detail.map;
+        L     = e.detail.L;
+        route = e.detail.extra.route;
+        bounds = L.latLngBounds([route.from, route.to]);
+        if (!modal.hidden) focus(pending);
+
+        const info = modal.querySelector('[data-route-info]');
+        try {
+            const url = 'https://router.project-osrm.org/route/v1/driving/'
+                + route.from[1] + ',' + route.from[0] + ';' + route.to[1] + ',' + route.to[0]
+                + '?overview=full&geometries=geojson';
+            const res  = await fetch(url);
+            const data = await res.json();
+            const r    = data.routes[0];
+            const line = r.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+
+            L.polyline(line, { color: '#8DC63F', weight: 10, opacity: .35 }).addTo(map); // halo vert
+            L.polyline(line, { color: '#0F2D24', weight: 4.5, opacity: .9 }).addTo(map); // trace
+            bounds = L.latLngBounds(line);
+
+            const km  = Math.round(r.distance / 1000);
+            const min = Math.round(r.duration / 60);
+            info.textContent = km + ' km · environ ' + (min >= 60 ? Math.floor(min / 60) + ' h ' + String(min % 60).padStart(2, '0') : min + ' min') + ' en voiture';
+        } catch (err) {
+            // Service indisponible : simple ligne droite en pointilles
+            L.polyline([route.from, route.to], { color: '#0F2D24', weight: 3, dashArray: '6 8' }).addTo(map);
+            info.textContent = 'Trace approximatif';
+        }
+        if (!modal.hidden) focus(pending);
+    });
+
+    // Ouverture depuis un bouton "carte" (Depart, Arrivee ou trajet complet)
+    document.addEventListener('click', (e) => {
+        const opener = e.target.closest('[data-modal-open="route-map"]');
+        if (opener) { pending = opener.dataset.mapFocus || 'route'; setTimeout(() => focus(pending), 60); }
+        const go = e.target.closest('[data-map-goto]');
+        if (go) focus(go.dataset.mapGoto);
+    });
+})();
+</script>
+{% endif %}

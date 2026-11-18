@@ -1,0 +1,10 @@
+{# Petit bouton "carte" a cote d'une ville. Variables : tripMap, focus ('from' | 'to' | 'route') #}
+{% if tripMap is defined and tripMap %}
+    <button type="button" data-modal-open="route-map" data-map-focus="{{ focus ?? 'route' }}"
+            aria-label="Voir sur la carte" title="Voir sur la carte"
+            class="inline-flex w-7 h-7 items-center justify-center rounded-full text-brand/40 hover:text-brand hover:bg-lime-soft transition align-middle shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <path d="M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/>
+        </svg>
+    </button>
+{% endif %}

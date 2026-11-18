@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Booking;
 use App\Entity\Trip;
 use App\Enum\BookingStatus;
+use App\Enum\CancelledBy;
 use App\Enum\TripStatus;
 use App\Form\BookingFormType;
 use Doctrine\ORM\EntityManagerInterface;
@@ -15,26 +16,42 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class BookingController extends AbstractController
 {
-    // ── CRÉER UNE RÉSERVATION ──────────────────────────────────────────────
+    // ── CREER UNE RESERVATION ──────────────────────────────────────────────
     #[Route('/trajets/{id}/reserver', name: 'app_booking_create', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]
     public function new(Trip $trip, Request $request, EntityManagerInterface $em): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $user = $this->getUser();
+        $back = $this->redirectToRoute('app_trip_show', ['id' => $trip->getId()]);
 
         if ($trip->getDriver() === $user) {
-            $this->addFlash('error', 'Vous ne pouvez pas réserver votre propre trajet.');
-            return $this->redirectToRoute('app_trip_show', ['id' => $trip->getId()]);
+            $this->addFlash('error', 'Vous ne pouvez pas reserver votre propre trajet.');
+
+            return $back;
         }
 
-        if (!in_array($trip->getStatus(), [TripStatus::Active, TripStatus::Full]) || $trip->getDeletedAt() !== null) {
-            $this->addFlash('error', 'Ce trajet n\'est plus disponible.');
-            return $this->redirectToRoute('app_trip_show', ['id' => $trip->getId()]);
+        if ($trip->getStatus() !== TripStatus::Active
+            || $trip->getDeletedAt() !== null
+            || $trip->getDepartureAt() <= new \DateTimeImmutable()) {
+            $this->addFlash('error', 'Ce trajet n\'est plus disponible a la reservation.');
+
+            return $back;
         }
 
         if ($trip->getAvailableSeats() < 1) {
-            $this->addFlash('error', 'Il n\'y a plus de places disponibles sur ce trajet.');
-            return $this->redirectToRoute('app_trip_show', ['id' => $trip->getId()]);
+            $this->addFlash('error', 'Il n\'y a plus de place sur ce trajet.');
+
+            return $back;
+        }
+
+        // Une seule reservation active par passager et par trajet
+        foreach ($trip->getBookings() as $existing) {
+            if ($existing->getPassenger() === $user
+                && in_array($existing->getStatus(), [BookingStatus::Pending, BookingStatus::Confirmed], true)) {
+                $this->addFlash('info', 'Vous avez deja une reservation sur ce trajet.');
+
+                return $this->redirectToRoute('app_ride_passenger', ['id' => $existing->getId()]);
+            }
         }
 
         $form = $this->createForm(BookingFormType::class, null, [
@@ -61,8 +78,9 @@ final class BookingController extends AbstractController
             $em->persist($booking);
             $em->flush();
 
-            $this->addFlash('success', 'Votre demande de réservation a bien été envoyée ! Le conducteur va confirmer votre place.');
-            return $this->redirectToRoute('app_booking_show', ['id' => $booking->getId()]);
+            $this->addFlash('success', 'Demande envoyee. Le conducteur va vous repondre.');
+
+            return $this->redirectToRoute('app_ride_passenger', ['id' => $booking->getId()]);
         }
 
         return $this->render('booking/new.html.twig', [
@@ -71,164 +89,186 @@ final class BookingController extends AbstractController
         ]);
     }
 
-    // ── DÉTAIL D'UNE RÉSERVATION ───────────────────────────────────────────
+    // ── ANCIENNE PAGE DETAIL -> redirige vers "Mes trajets" ────────────────
     #[Route('/reservations/{id}', name: 'app_booking_show', requirements: ['id' => '\d+'])]
     public function show(Booking $booking): Response
     {
-        $this->denyAccessUnlessGranted('ROLE_USER');
-
-        if ($booking->getPassenger() !== $this->getUser()) {
-            throw $this->createAccessDeniedException('Accès refusé.');
-        }
-
-        return $this->render('booking/show.html.twig', ['booking' => $booking]);
+        return $this->redirectToRoute('app_ride_passenger', ['id' => $booking->getId()]);
     }
 
-    // ── ANNULER UNE RÉSERVATION (passager) ────────────────────────────────
+    // ── ANNULER MA RESERVATION (passager) ──────────────────────────────────
     #[Route('/reservations/{id}/annuler', name: 'app_booking_cancel', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function cancel(Booking $booking, Request $request, EntityManagerInterface $em): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
 
         if ($booking->getPassenger() !== $this->getUser()) {
-            throw $this->createAccessDeniedException('Accès refusé.');
+            throw $this->createAccessDeniedException('Acces refuse.');
         }
 
-        if (!$this->isCsrfTokenValid('cancel-booking-' . $booking->getId(), $request->request->get('_token'))) {
-            $this->addFlash('error', 'Token invalide. Réessayez.');
-            return $this->redirectToRoute('app_booking_show', ['id' => $booking->getId()]);
-        }
+        $back = $this->redirectToRoute('app_ride_passenger', ['id' => $booking->getId()]);
 
-        if (!in_array($booking->getStatus(), [BookingStatus::Pending, BookingStatus::Confirmed])) {
-            $this->addFlash('error', 'Cette réservation ne peut plus être annulée.');
-            return $this->redirectToRoute('app_booking_show', ['id' => $booking->getId()]);
+        if (!$this->isCsrfTokenValid('cancel-booking-' . $booking->getId(), $request->request->getString('_token'))) {
+            $this->addFlash('error', 'Token invalide. Reessayez.');
+
+            return $back;
         }
 
         $trip = $booking->getTrip();
 
-        // Si confirmée : restituer les places + remettre le trajet en Active si Full
-        if ($booking->getStatus() === BookingStatus::Confirmed) {
-            $trip->setAvailableSeats($trip->getAvailableSeats() + $booking->getSeats());
+        if (!in_array($booking->getStatus(), [BookingStatus::Pending, BookingStatus::Confirmed], true)
+            || $trip->getDepartureAt() <= new \DateTimeImmutable()) {
+            $this->addFlash('error', 'Cette reservation ne peut plus etre annulee.');
 
-            if ($trip->getStatus() === TripStatus::Full) {
-                $trip->setStatus(TripStatus::Active);
-            }
+            return $back;
         }
 
+        $this->releaseSeats($booking);
+
         $booking->setStatus(BookingStatus::Cancelled);
+        $booking->setCancelledBy(CancelledBy::Passenger);
         $booking->setCancelledAt(new \DateTimeImmutable());
+        $booking->setCancelledReason($request->request->getString('reason') ?: null);
 
         $em->flush();
 
-        $this->addFlash('success', 'Votre réservation a été annulée.');
-        return $this->redirectToRoute('app_account');
+        $this->addFlash('success', 'Votre reservation est annulee.');
+
+        return $this->redirectToRoute('app_rides', ['onglet' => 'annules']);
     }
 
-    // ── CONFIRMER UNE RÉSERVATION (conducteur) ────────────────────────────
+    // ── ACCEPTER UNE DEMANDE (conducteur) ──────────────────────────────────
     #[Route('/reservations/{id}/confirmer', name: 'app_booking_confirm', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function confirm(Booking $booking, Request $request, EntityManagerInterface $em): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-
-        if ($booking->getTrip()->getDriver() !== $this->getUser()) {
-            throw $this->createAccessDeniedException('Accès refusé.');
-        }
-
-        if (!$this->isCsrfTokenValid('confirm-booking-' . $booking->getId(), $request->request->get('_token'))) {
-            $this->addFlash('error', 'Token invalide. Réessayez.');
-            return $this->redirectToRoute('app_account');
-        }
-
-        if ($booking->getStatus() !== BookingStatus::Pending) {
-            $this->addFlash('error', 'Cette réservation ne peut plus être confirmée.');
-            return $this->redirectToRoute('app_account');
-        }
-
         $trip = $booking->getTrip();
 
-        $booking->setStatus(BookingStatus::Confirmed);
-        $newAvailable = $trip->getAvailableSeats() - $booking->getSeats();
-        $trip->setAvailableSeats(max(0, $newAvailable));
+        if ($trip->getDriver() !== $this->getUser()) {
+            throw $this->createAccessDeniedException('Acces refuse.');
+        }
 
-        // Si plus aucune place disponible → trajet complet
+        $back = $this->redirectToRoute('app_ride_driver', ['id' => $trip->getId()]);
+
+        if (!$this->isCsrfTokenValid('confirm-booking-' . $booking->getId(), $request->request->getString('_token'))) {
+            $this->addFlash('error', 'Token invalide. Reessayez.');
+
+            return $back;
+        }
+
+        if ($booking->getStatus() !== BookingStatus::Pending || $trip->getDepartureAt() <= new \DateTimeImmutable()) {
+            $this->addFlash('error', 'Cette demande ne peut plus etre acceptee.');
+
+            return $back;
+        }
+
+        if ($booking->getSeats() > $trip->getAvailableSeats()) {
+            $this->addFlash('error', 'Il ne reste pas assez de places pour accepter cette demande.');
+
+            return $back;
+        }
+
+        $booking->setStatus(BookingStatus::Confirmed);
+        $trip->setAvailableSeats($trip->getAvailableSeats() - $booking->getSeats());
+
         if ($trip->getAvailableSeats() === 0) {
             $trip->setStatus(TripStatus::Full);
         }
 
         $em->flush();
 
-        $this->addFlash('success', 'Réservation confirmée. ' . $booking->getPassenger()->getFirstName() . ' est maintenant passager.');
-        return $this->redirectToRoute('app_account');
+        $this->addFlash('success', $booking->getPassenger()->getFirstName() . ' fait maintenant partie du trajet.');
+
+        return $back;
     }
 
-    // ── REFUSER UNE RÉSERVATION (conducteur) ──────────────────────────────
+    // ── REFUSER UNE DEMANDE (conducteur) ───────────────────────────────────
     #[Route('/reservations/{id}/refuser', name: 'app_booking_refuse', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function refuse(Booking $booking, Request $request, EntityManagerInterface $em): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
+        $trip = $booking->getTrip();
 
-        if ($booking->getTrip()->getDriver() !== $this->getUser()) {
-            throw $this->createAccessDeniedException('Accès refusé.');
+        if ($trip->getDriver() !== $this->getUser()) {
+            throw $this->createAccessDeniedException('Acces refuse.');
         }
 
-        if (!$this->isCsrfTokenValid('refuse-booking-' . $booking->getId(), $request->request->get('_token'))) {
-            $this->addFlash('error', 'Token invalide. Réessayez.');
-            return $this->redirectToRoute('app_account');
+        $back = $this->redirectToRoute('app_ride_driver', ['id' => $trip->getId()]);
+
+        if (!$this->isCsrfTokenValid('refuse-booking-' . $booking->getId(), $request->request->getString('_token'))) {
+            $this->addFlash('error', 'Token invalide. Reessayez.');
+
+            return $back;
         }
 
         if ($booking->getStatus() !== BookingStatus::Pending) {
-            $this->addFlash('error', 'Cette réservation a déjà été traitée.');
-            return $this->redirectToRoute('app_account');
+            $this->addFlash('error', 'Cette demande a deja ete traitee.');
+
+            return $back;
         }
 
         $booking->setStatus(BookingStatus::Cancelled);
+        $booking->setCancelledBy(CancelledBy::Driver);
         $booking->setCancelledAt(new \DateTimeImmutable());
 
         $em->flush();
 
-        $this->addFlash('success', 'Réservation refusée.');
-        return $this->redirectToRoute('app_account');
+        $this->addFlash('success', 'Demande refusee.');
+
+        return $back;
     }
 
-    // ── RETIRER UN PASSAGER (conducteur) ──────────────────────────────────
+    // ── RETIRER UN PASSAGER (conducteur, avant le depart) ──────────────────
     #[Route('/reservations/{id}/retirer-passager', name: 'app_booking_cancel_driver', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function cancelByDriver(Booking $booking, Request $request, EntityManagerInterface $em): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
+        $trip = $booking->getTrip();
 
-        if ($booking->getTrip()->getDriver() !== $this->getUser()) {
-            throw $this->createAccessDeniedException('Accès refusé.');
+        if ($trip->getDriver() !== $this->getUser()) {
+            throw $this->createAccessDeniedException('Acces refuse.');
         }
 
-        if (!$this->isCsrfTokenValid('cancel-booking-driver-' . $booking->getId(), $request->request->get('_token'))) {
-            $this->addFlash('error', 'Token invalide. Réessayez.');
-            return $this->redirectToRoute('app_trip_show', ['id' => $booking->getTrip()->getId()]);
+        $back = $this->redirectToRoute('app_ride_driver', ['id' => $trip->getId()]);
+
+        if (!$this->isCsrfTokenValid('cancel-booking-driver-' . $booking->getId(), $request->request->getString('_token'))) {
+            $this->addFlash('error', 'Token invalide. Reessayez.');
+
+            return $back;
         }
 
-        if (!in_array($booking->getStatus(), [BookingStatus::Confirmed, BookingStatus::Pending])) {
-            $this->addFlash('error', 'Cette réservation ne peut plus être annulée.');
-            return $this->redirectToRoute('app_trip_show', ['id' => $booking->getTrip()->getId()]);
+        if ($booking->getStatus() !== BookingStatus::Confirmed || $trip->getDepartureAt() <= new \DateTimeImmutable()) {
+            $this->addFlash('error', 'Ce passager ne peut plus etre retire.');
+
+            return $back;
         }
 
-        $wasConfirmed  = $booking->getStatus() === BookingStatus::Confirmed;
-        $passengerName = $booking->getPassenger()->getFirstName();
-        $trip          = $booking->getTrip();
+        $this->releaseSeats($booking);
 
         $booking->setStatus(BookingStatus::Cancelled);
+        $booking->setCancelledBy(CancelledBy::Driver);
         $booking->setCancelledAt(new \DateTimeImmutable());
-
-        // Si confirmée : restituer les places + remettre en Active si Full
-        if ($wasConfirmed) {
-            $trip->setAvailableSeats($trip->getAvailableSeats() + $booking->getSeats());
-
-            if ($trip->getStatus() === TripStatus::Full) {
-                $trip->setStatus(TripStatus::Active);
-            }
-        }
+        $booking->setCancelledReason($request->request->getString('reason') ?: null);
 
         $em->flush();
 
-        $this->addFlash('success', $passengerName . ' a été retiré du trajet. Les places ont été remises à disposition.');
-        return $this->redirectToRoute('app_trip_show', ['id' => $trip->getId()]);
+        $this->addFlash('success', $booking->getPassenger()->getFirstName() . ' a ete retire du trajet. Ses places sont de nouveau disponibles.');
+
+        return $back;
+    }
+
+    /** Rend les places d'une reservation confirmee et rouvre le trajet s'il etait complet. */
+    private function releaseSeats(Booking $booking): void
+    {
+        if ($booking->getStatus() !== BookingStatus::Confirmed) {
+            return;
+        }
+
+        $trip = $booking->getTrip();
+        $trip->setAvailableSeats($trip->getAvailableSeats() + $booking->getSeats());
+
+        if ($trip->getStatus() === TripStatus::Full) {
+            $trip->setStatus(TripStatus::Active);
+        }
     }
 }
