@@ -39,7 +39,7 @@ class UserCrudController extends AbstractCrudController
                 ])
                 ->onlyOnForms(),
             TextareaField::new('bio', 'Bio')->onlyOnForms(),
-            ImageField::new('avatar', 'Avatar')->onlyOnForms(),
+            ImageField::new('avatar', 'Avatar')->setBasePath('')->onlyOnIndex(),
             DateField::new('dateOfBirth', 'Date de naissance')->onlyOnForms(),
             BooleanField::new('smokingAllowed', 'Fumeur')->onlyOnForms(),
             BooleanField::new('petsAllowed', 'Animaux')->onlyOnForms(),

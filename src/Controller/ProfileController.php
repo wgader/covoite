@@ -6,6 +6,7 @@ use App\Entity\User;
 use App\Enum\TripStatus;
 use App\Form\ProfileFormType;
 use App\Repository\TripRepository;
+use App\Service\AvatarUploader;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -16,7 +17,7 @@ final class ProfileController extends AbstractController
 {
     // ── PROFIL (public) + edition directe si c'est le mien ─────────────────
     #[Route('/profil/{id}', name: 'app_profile_show', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]
-    public function show(User $user, Request $request, TripRepository $tripRepo, EntityManagerInterface $em): Response
+    public function show(User $user, Request $request, TripRepository $tripRepo, EntityManagerInterface $em, AvatarUploader $avatars): Response
     {
         if ($user->getDeletedAt() !== null || $user->getSuspendedAt() !== null) {
             throw $this->createNotFoundException('Ce profil n\'existe pas.');
@@ -32,6 +33,18 @@ final class ProfileController extends AbstractController
             $form->handleRequest($request);
 
             if ($form->isSubmitted() && $form->isValid()) {
+                // Photo : nouvelle photo envoyee, ou case "Supprimer ma photo" cochee
+                $file = $form->get('avatarFile')->getData();
+                if ($file !== null || $form->get('removeAvatar')->getData()) {
+                    $old = $user->getAvatar();
+                    try {
+                        $user->setAvatar($file !== null ? $avatars->upload($file) : null);
+                        $avatars->remove($old);
+                    } catch (\Throwable) {
+                        $this->addFlash('error', 'La photo n\'a pas pu etre enregistree. Essayez avec une autre image.');
+                    }
+                }
+
                 $em->flush();
                 $this->addFlash('success', 'Profil mis a jour.');
 

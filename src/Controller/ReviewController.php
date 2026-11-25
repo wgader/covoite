@@ -7,7 +7,9 @@ use App\Enum\BookingStatus;
 use App\Enum\ReviewType;
 use App\Form\ReviewFormType;
 use App\Entity\Booking;
+use App\Enum\NotificationType;
 use App\Repository\ReviewRepository;
+use App\Service\NotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,6 +24,7 @@ final class ReviewController extends AbstractController
         Request                $request,
         EntityManagerInterface $em,
         ReviewRepository       $reviewRepo,
+        NotificationService    $notifier,
     ): Response {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $user = $this->getUser();
@@ -73,6 +76,13 @@ final class ReviewController extends AbstractController
             $review->setCreatedAt(new \DateTimeImmutable());
 
             $em->persist($review);
+
+            $stars = str_repeat('★', $review->getRating()) . str_repeat('☆', 5 - $review->getRating());
+            $notifier->notify($target, NotificationType::NewReview,
+                $user->getFirstName() . ' vous a laisse un avis : ' . $stars . ' apres le trajet '
+                . $trip->getDepartureCity() . ' → ' . $trip->getArrivalCity() . '.',
+                'app_profile_show', ['id' => $target->getId()]);
+
             $em->flush();
 
             $this->addFlash('success', 'Votre avis a bien ete enregistre. Merci !');

@@ -220,10 +220,9 @@
 
     if (window.matchMedia('(min-width: 768px)').matches) input.focus();
 
-    // ── Actualisation automatique toutes les 8 s (seulement si l'onglet est visible) ──
-    // On recharge la page en arriere-plan et on remplace juste les messages et la liste.
-    setInterval(async () => {
-        if (document.hidden) return;
+    // ── Nouveaux messages ──
+    // On recharge la page en arriere-plan et on remplace juste les messages, la liste et le compteur.
+    const refresh = async () => {
         try {
             const res  = await fetch(window.location.href, { headers: { 'X-Requested-With': 'fetch' } });
             if (!res.ok) return;
@@ -238,8 +237,26 @@
             }
             const list = document.querySelector('[data-conv-list]'), nextList = doc.querySelector('[data-conv-list]');
             if (list && nextList) list.innerHTML = nextList.innerHTML;
+            // Compteur "messages non lus" de la barre du haut (la discussion ouverte est maintenant lue)
+            const badge = doc.querySelector('[data-live-badge="messages"]');
+            if (badge) document.querySelectorAll('[data-live-badge="messages"]').forEach((b) => { b.hidden = badge.hidden; b.textContent = badge.textContent; });
         } catch (e) { /* hors ligne : on reessaiera */ }
-    }, 8000);
+    };
+
+    // 1) En direct (Mercure) : un message de cette personne arrive -> on recharge tout de suite
+    const partnerId = {{ partner.id }};
+    window.addEventListener('covoite:live', (e) => {
+        if (e.detail.type === 'message' && e.detail.from === partnerId) refresh();
+    });
+
+    // 2) Filet de securite si le direct ne marche pas : toutes les 8 s (30 s si le direct marche)
+    let last = Date.now();
+    setInterval(() => {
+        if (document.hidden) return;
+        if (Date.now() - last < (window.covoiteLive ? 30000 : 8000)) return;
+        last = Date.now();
+        refresh();
+    }, 2000);
 })();
 </script>
 {% endblock %}

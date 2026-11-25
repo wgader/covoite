@@ -1,0 +1,31 @@
+{#
+    Mise en page commune des e-mails. Les e-mails n'acceptent ni Tailwind ni CSS externe :
+    tout est en styles "inline" et en tableaux (c'est ce que comprennent Gmail, Outlook...).
+    Blocs : content
+#}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Covoite</title>
+</head>
+<body style="margin:0;padding:0;background:#F5F5F0;font-family:Arial,Helvetica,sans-serif;color:#0F2D24;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F5F5F0;padding:32px 12px;">
+    <tr><td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+            <tr><td style="padding:0 8px 18px;font-size:26px;font-weight:800;letter-spacing:-.5px;color:#0F2D24;">
+                Covoite<span style="color:#8DC63F;">.</span>
+            </td></tr>
+            <tr><td style="background:#ffffff;border-radius:20px;padding:32px 28px;border:1px solid #e8e8e2;">
+                {% block content %}{% endblock %}
+            </td></tr>
+            <tr><td style="padding:18px 8px;font-size:12px;line-height:18px;color:#7b8a84;">
+                Vous recevez cet e-mail car vous avez un compte sur Covoite.<br>
+                Ceci est un message automatique, merci de ne pas y repondre.
+            </td></tr>
+        </table>
+    </td></tr>
+</table>
+</body>
+</html>

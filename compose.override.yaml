@@ -26,12 +26,27 @@ services:
       XDEBUG_MODE: "${XDEBUG_MODE:-develop}"
       APP_ENV: "${APP_ENV:-dev}"
       SERVER_NAME: localhost
+      # E-mails envoyes a Mailpit (aucun e-mail ne part vraiment) : boite de reception sur http://localhost:8025
+      MAILER_DSN: smtp://mailer:1025
     extra_hosts:
       # Ensure that host.docker.internal is correctly defined on Linux
       - host.docker.internal:host-gateway
     tty: true
 ###> symfony/mercure-bundle ###
 ###< symfony/mercure-bundle ###
+
+###> symfony/mailer ###
+  # Mailpit : faux serveur mail pour le developpement. Il attrape tous les e-mails envoyes
+  # par l'application et les affiche sur http://localhost:8025
+  mailer:
+    image: axllent/mailpit
+    ports:
+      - "1025"
+      - "8025:8025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+###< symfony/mailer ###
 
 ###> doctrine/doctrine-bundle ###
   database:

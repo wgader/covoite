@@ -17,3 +17,6 @@
 /public/assets/
 /assets/vendor/
 ###< symfony/asset-mapper ###
+
+# Fichiers envoyes par les utilisateurs (photos de profil)
+/public/uploads/

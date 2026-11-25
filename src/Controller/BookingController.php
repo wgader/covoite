@@ -8,6 +8,8 @@ use App\Enum\BookingStatus;
 use App\Enum\CancelledBy;
 use App\Enum\TripStatus;
 use App\Form\BookingFormType;
+use App\Enum\NotificationType;
+use App\Service\NotificationService;
 use App\Validator\TextRules;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -20,7 +22,7 @@ final class BookingController extends AbstractController
 {
     // ── CREER UNE RESERVATION ──────────────────────────────────────────────
     #[Route('/trajets/{id}/reserver', name: 'app_booking_create', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]
-    public function new(Trip $trip, Request $request, EntityManagerInterface $em): Response
+    public function new(Trip $trip, Request $request, EntityManagerInterface $em, NotificationService $notifier): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $user = $this->getUser();
@@ -86,6 +88,12 @@ final class BookingController extends AbstractController
             $booking->setCreatedAt(new \DateTimeImmutable());
 
             $em->persist($booking);
+
+            $notifier->notify($trip->getDriver(), NotificationType::BookingRequested,
+                $user->getFirstName() . ' demande ' . $seats . ' place' . ($seats > 1 ? 's' : '') . ' pour votre trajet '
+                . $this->routeLabel($trip) . '. Acceptez ou refusez sa demande.',
+                'app_ride_driver', ['id' => $trip->getId()]);
+
             $em->flush();
 
             $this->addFlash('success', 'Demande envoyee. Le conducteur va vous repondre.');
@@ -109,7 +117,7 @@ final class BookingController extends AbstractController
 
     // ── ANNULER MA RESERVATION (passager) ──────────────────────────────────
     #[Route('/reservations/{id}/annuler', name: 'app_booking_cancel', requirements: ['id' => '\d+'], methods: ['POST'])]
-    public function cancel(Booking $booking, Request $request, EntityManagerInterface $em): Response
+    public function cancel(Booking $booking, Request $request, EntityManagerInterface $em, NotificationService $notifier): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
 
@@ -146,6 +154,11 @@ final class BookingController extends AbstractController
         $booking->setCancelledAt(new \DateTimeImmutable());
         $booking->setCancelledReason($reason);
 
+        $notifier->notify($trip->getDriver(), NotificationType::BookingCancelled,
+            $booking->getPassenger()->getFirstName() . ' a annule sa reservation pour ' . $this->routeLabel($trip) . '.'
+            . ($reason ? ' Motif : « ' . $reason . ' »' : ''),
+            'app_ride_driver', ['id' => $trip->getId()]);
+
         $em->flush();
 
         $this->addFlash('success', 'Votre reservation est annulee.');
@@ -155,7 +168,7 @@ final class BookingController extends AbstractController
 
     // ── ACCEPTER UNE DEMANDE (conducteur) ──────────────────────────────────
     #[Route('/reservations/{id}/confirmer', name: 'app_booking_confirm', requirements: ['id' => '\d+'], methods: ['POST'])]
-    public function confirm(Booking $booking, Request $request, EntityManagerInterface $em): Response
+    public function confirm(Booking $booking, Request $request, EntityManagerInterface $em, NotificationService $notifier): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $trip = $booking->getTrip();
@@ -204,6 +217,11 @@ final class BookingController extends AbstractController
             return $back;
         }
 
+        $notifier->notify($booking->getPassenger(), NotificationType::BookingConfirmed,
+            $trip->getDriver()->getFirstName() . ' a accepte votre demande pour ' . $this->routeLabel($trip) . '. Bon voyage !',
+            'app_ride_passenger', ['id' => $booking->getId()]);
+        $em->flush();
+
         $this->addFlash('success', $booking->getPassenger()->getFirstName() . ' fait maintenant partie du trajet.');
 
         return $back;
@@ -211,7 +229,7 @@ final class BookingController extends AbstractController
 
     // ── REFUSER UNE DEMANDE (conducteur) ───────────────────────────────────
     #[Route('/reservations/{id}/refuser', name: 'app_booking_refuse', requirements: ['id' => '\d+'], methods: ['POST'])]
-    public function refuse(Booking $booking, Request $request, EntityManagerInterface $em): Response
+    public function refuse(Booking $booking, Request $request, EntityManagerInterface $em, NotificationService $notifier): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $trip = $booking->getTrip();
@@ -238,6 +256,10 @@ final class BookingController extends AbstractController
         $booking->setCancelledBy(CancelledBy::Driver);
         $booking->setCancelledAt(new \DateTimeImmutable());
 
+        $notifier->notify($booking->getPassenger(), NotificationType::BookingRefused,
+            $trip->getDriver()->getFirstName() . ' ne peut pas vous prendre pour ' . $this->routeLabel($trip) . '. D\'autres trajets vous attendent sur Covoite.',
+            'app_ride_passenger', ['id' => $booking->getId()]);
+
         $em->flush();
 
         $this->addFlash('success', 'Demande refusee.');
@@ -247,7 +269,7 @@ final class BookingController extends AbstractController
 
     // ── RETIRER UN PASSAGER (conducteur, avant le depart) ──────────────────
     #[Route('/reservations/{id}/retirer-passager', name: 'app_booking_cancel_driver', requirements: ['id' => '\d+'], methods: ['POST'])]
-    public function cancelByDriver(Booking $booking, Request $request, EntityManagerInterface $em): Response
+    public function cancelByDriver(Booking $booking, Request $request, EntityManagerInterface $em, NotificationService $notifier): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $trip = $booking->getTrip();
@@ -282,11 +304,22 @@ final class BookingController extends AbstractController
         $booking->setCancelledAt(new \DateTimeImmutable());
         $booking->setCancelledReason($reason);
 
+        $notifier->notify($booking->getPassenger(), NotificationType::PassengerRemoved,
+            $trip->getDriver()->getFirstName() . ' vous a retire du trajet ' . $this->routeLabel($trip) . '.'
+            . ($reason ? ' Motif : « ' . $reason . ' »' : ''),
+            'app_ride_passenger', ['id' => $booking->getId()]);
+
         $em->flush();
 
         $this->addFlash('success', $booking->getPassenger()->getFirstName() . ' a ete retire du trajet. Ses places sont de nouveau disponibles.');
 
         return $back;
+    }
+
+    /** "Angouleme → Limoges (ven. 28/11 a 08h00)" */
+    private function routeLabel(Trip $trip): string
+    {
+        return $trip->getDepartureCity() . ' → ' . $trip->getArrivalCity() . ' (' . $trip->getDepartureAt()->format('d/m \a H\hi') . ')';
     }
 
     /** Motif d'annulation (optionnel). false = texte refuse (un message d'erreur est deja affiche). */

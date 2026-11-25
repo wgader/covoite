@@ -8,6 +8,9 @@ use App\Enum\CancelledBy;
 use App\Enum\TripStatus;
 use App\Form\TripFormType;
 use App\Repository\TripRepository;
+use App\Enum\NotificationType;
+use App\Service\NotificationService;
+use App\Service\PastTripsCloser;
 use App\Service\PlaceSearch;
 use App\Service\TripMapFactory;
 use Doctrine\ORM\EntityManagerInterface;
@@ -221,7 +224,7 @@ final class TripController extends AbstractController
 
     // ── MARQUER COMME TERMINE (apres l'heure de depart) ────────────────────
     #[Route('/trajets/{id}/terminer', name: 'app_trip_complete', requirements: ['id' => '\d+'], methods: ['POST'])]
-    public function complete(Trip $trip, Request $request, EntityManagerInterface $em): Response
+    public function complete(Trip $trip, Request $request, EntityManagerInterface $em, PastTripsCloser $closer): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $this->assertDriver($trip);
@@ -246,22 +249,12 @@ final class TripController extends AbstractController
             return $back;
         }
 
-        $trip->setStatus(TripStatus::Completed);
+        // Meme logique que la fermeture automatique (passagers prevenus, demandes en attente annulees)
+        if (!$closer->close($trip)) {
+            $this->addFlash('info', 'Ce trajet etait deja termine.');
 
-        foreach ($trip->getBookings() as $booking) {
-            if ($booking->getStatus() === BookingStatus::Confirmed) {
-                $booking->setStatus(BookingStatus::Completed);
-            } elseif ($booking->getStatus() === BookingStatus::Pending) {
-                // Une demande jamais acceptee n'a plus de sens apres le depart
-                $booking->setStatus(BookingStatus::Cancelled);
-                $booking->setCancelledBy(CancelledBy::Driver);
-                $booking->setCancelledAt(new \DateTimeImmutable());
-            }
+            return $back;
         }
-
-        $driver = $trip->getDriver();
-        $driver->setTripsCompleted(($driver->getTripsCompleted() ?? 0) + 1);
-
         $em->flush();
 
         $this->addFlash('success', 'Trajet termine. Vous pouvez maintenant noter vos passagers.');
@@ -314,7 +307,7 @@ final class TripController extends AbstractController
 
     // ── ANNULER LE TRAJET (conducteur) ─────────────────────────────────────
     #[Route('/trajets/{id}/annuler', name: 'app_trip_cancel', requirements: ['id' => '\d+'], methods: ['POST'])]
-    public function cancel(Trip $trip, Request $request, EntityManagerInterface $em): Response
+    public function cancel(Trip $trip, Request $request, EntityManagerInterface $em, NotificationService $notifier): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $this->assertDriver($trip);
@@ -338,6 +331,11 @@ final class TripController extends AbstractController
                 $booking->setStatus(BookingStatus::Cancelled);
                 $booking->setCancelledBy(CancelledBy::Driver);
                 $booking->setCancelledAt(new \DateTimeImmutable());
+
+                $notifier->notify($booking->getPassenger(), NotificationType::TripCancelled,
+                    $trip->getDriver()->getFirstName() . ' a annule le trajet ' . $trip->getDepartureCity() . ' → ' . $trip->getArrivalCity()
+                    . ' du ' . $trip->getDepartureAt()->format('d/m \a H\hi') . '. Cherchez un autre trajet sur Covoite.',
+                    'app_ride_passenger', ['id' => $booking->getId()]);
             }
         }
 

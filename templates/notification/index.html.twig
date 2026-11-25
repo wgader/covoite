@@ -1,0 +1,59 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Notifications — Covoite{% endblock %}
+
+{#
+    Liste des notifications (NotificationController::index).
+    Variables : notifications (Notification[], les plus recentes d'abord)
+    Les nouvelles (pas encore lues) sont surlignees ; elles passent en "lues" apres l'affichage.
+#}
+{% set icons = {
+    inbox:   '<path d="M3 13h5l1.5 3h5L16 13h5"/><path d="M5 5h14l2 8v6H3v-6z"/>',
+    check:   '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.5 2.5L16 9.5"/>',
+    x:       '<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/>',
+    star:    '<path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/>',
+    message: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.3A8 8 0 1 1 21 12z"/>',
+    clock:   '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+} %}
+
+{% block body %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+    <h1 class="text-3xl font-extrabold text-brand tracking-tight">Notifications</h1>
+    <p class="text-sm text-brand/50 mt-1">Reservations, annulations, avis... tout ce qui concerne vos trajets.</p>
+
+    {% if notifications is empty %}
+        <div class="bg-white rounded-3xl border border-black/5 shadow-card px-6 py-14 text-center mt-8">
+            <span class="w-16 h-16 rounded-2xl bg-lime-soft text-brand mx-auto flex items-center justify-center">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>
+            </span>
+            <h2 class="text-xl font-extrabold text-brand mt-5">Rien de neuf</h2>
+            <p class="text-sm text-brand/50 mt-1.5">Vous serez prevenu ici (et par e-mail) a chaque etape de vos trajets.</p>
+        </div>
+    {% else %}
+        <ul class="mt-8 bg-white rounded-3xl border border-black/5 shadow-card overflow-hidden divide-y divide-black/5">
+            {% for n in notifications %}
+                {% set tone = n.type.icon == 'x' ? 'bg-red-50 text-red-600' : (n.type.icon == 'check' or n.type.icon == 'star' ? 'bg-lime-soft text-brand' : 'bg-cream text-brand') %}
+                <li>
+                    <a href="{{ path('app_notification_open', {id: n.id}) }}"
+                       class="flex gap-4 px-5 sm:px-6 py-4 transition hover:bg-cream/60 {{ n.read ? '' : 'bg-lime-soft/40' }}">
+                        <span class="w-10 h-10 rounded-full {{ tone }} flex items-center justify-center shrink-0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">{{ icons[n.type.icon]|raw }}</svg>
+                        </span>
+                        <span class="flex-1 min-w-0">
+                            <span class="flex items-center gap-2">
+                                <span class="text-sm font-bold text-brand">{{ n.type.title }}</span>
+                                {% if not n.read %}<span class="w-2 h-2 rounded-full bg-lime" aria-label="Non lue"></span>{% endif %}
+                            </span>
+                            <span class="block text-sm text-brand/70 mt-0.5 leading-snug">{{ n.content }}</span>
+                            <span class="block text-xs text-brand/40 mt-1.5">{{ n.createdAt|date_fr }} a {{ n.createdAt|date('H:i') }}</span>
+                        </span>
+                        {% if n.link %}
+                            <svg class="w-4 h-4 text-brand/30 self-center shrink-0" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+                        {% endif %}
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</div>
+{% endblock %}

@@ -5,6 +5,7 @@ namespace App\Validator;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Component\Validator\Constraints\NotCompromisedPassword;
 use Symfony\Component\Validator\Constraints\Range;
 use Symfony\Component\Validator\Constraints\Regex;
 
@@ -86,6 +87,25 @@ final class TextRules
                 notInRangeMessage: 'Position GPS invalide. Choisissez une adresse dans la liste.',
                 invalidMessage: 'Position GPS invalide. Choisissez une adresse dans la liste.',
             ),
+        ];
+    }
+
+    /**
+     * @return Constraint[] Nouveau mot de passe : 8 caracteres minimum, majuscule, minuscule, chiffre, caractere special,
+     *                      et refuse s'il apparait dans une fuite de donnees connue (haveibeenpwned).
+     */
+    public static function password(): array
+    {
+        return [
+            new NotBlank(message: 'Choisissez un mot de passe.'),
+            new Length(min: 8, max: 4096, minMessage: 'Au moins {{ limit }} caracteres.'),
+            new Regex(
+                pattern: '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d])/',
+                message: 'Il faut une majuscule, une minuscule, un chiffre et un caractere special.',
+            ),
+            // Seuls les 5 premiers caracteres du hash SHA-1 sont envoyes au service : le mot de passe ne quitte jamais le serveur.
+            // Service injoignable -> on laisse passer (skipOnError).
+            new NotCompromisedPassword(message: 'Ce mot de passe a deja fuite sur Internet. Choisissez-en un autre.', skipOnError: true),
         ];
     }
 

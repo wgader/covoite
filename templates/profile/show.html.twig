@@ -74,10 +74,32 @@
                             <div class="form-error">{{ form_errors(field) }}</div>
                         </div>
                     {% endfor %}
-                    <div class="sm:col-span-2">
-                        {{ form_label(profileForm.avatar, null, {label_attr: {class: 'field-label'}}) }}
-                        {{ form_widget(profileForm.avatar, {attr: {class: 'field'}}) }}
-                        <div class="form-error">{{ form_errors(profileForm.avatar) }}</div>
+                    {# ── Photo de profil : apercu + choix du fichier ── #}
+                    <div class="sm:col-span-2" data-avatar-box>
+                        <span class="field-label">Photo de profil</span>
+                        <div class="flex items-center gap-4">
+                            <span class="relative w-20 h-20 rounded-full overflow-hidden bg-brand text-lime text-2xl font-extrabold flex items-center justify-center shrink-0 ring-4 ring-lime-soft">
+                                <img data-avatar-preview src="{{ user.avatar ?? '' }}" alt="" class="absolute inset-0 w-full h-full object-cover" {{ user.avatar ? '' : 'hidden' }}>
+                                {{ user.firstName|first|upper }}{{ user.lastName|first|upper }}
+                            </span>
+                            <div class="min-w-0">
+                                <label class="inline-flex items-center gap-2 text-sm font-semibold text-brand border border-brand/15 hover:border-brand/40 px-4 py-2 rounded-full cursor-pointer transition">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+                                    Choisir une photo
+                                    {{ form_widget(profileForm.avatarFile, {attr: {class: 'sr-only', 'data-avatar-input': ''}}) }}
+                                </label>
+                                <p class="text-xs text-brand/40 mt-1.5">JPEG, PNG ou WebP, 4 Mo maximum. Elle sera recadree en carre.</p>
+                                {% if user.avatar %}
+                                    <label class="inline-flex items-center gap-2 text-xs font-semibold text-red-600 mt-2 cursor-pointer">
+                                        {{ form_widget(profileForm.removeAvatar, {attr: {class: 'accent-red-600', 'data-avatar-remove': ''}}) }}
+                                        Supprimer ma photo
+                                    </label>
+                                {% else %}
+                                    {% do profileForm.removeAvatar.setRendered() %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="form-error">{{ form_errors(profileForm.avatarFile) }}</div>
                     </div>
                     <div class="sm:col-span-2">
                         {{ form_label(profileForm.bio, null, {label_attr: {class: 'field-label'}}) }}
@@ -115,7 +137,42 @@
             </div>
 
             {{ form_end(profileForm) }}
+
+            {# ── Zone sensible : suppression du compte (formulaire a part, avec mot de passe) ── #}
+            <div class="mt-8 bg-white rounded-3xl border border-red-100 p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center gap-4">
+                <div class="flex-1">
+                    <h2 class="text-base font-extrabold text-brand">Supprimer mon compte</h2>
+                    <p class="text-sm text-brand/50 mt-1">Vos trajets et reservations a venir seront annules et vos informations personnelles effacees. C'est definitif.</p>
+                </div>
+                <button type="button" data-modal-open="delete-account"
+                        class="shrink-0 px-5 py-2.5 rounded-full border border-red-200 text-red-600 font-semibold text-sm hover:bg-red-50 transition">
+                    Supprimer mon compte
+                </button>
+            </div>
         </section>
+
+        <div id="delete-account" hidden class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="delete-account-title">
+            <div data-modal-backdrop class="anim-fade absolute inset-0 bg-brand/40 backdrop-blur-sm"></div>
+            <form method="post" action="{{ path('app_account_delete') }}"
+                  class="anim-modal relative w-full max-w-md bg-white rounded-3xl shadow-pop p-6 sm:p-7">
+                <span class="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+                </span>
+                <h2 id="delete-account-title" class="text-xl font-extrabold text-brand mt-4">Supprimer definitivement votre compte ?</h2>
+                <ul class="text-sm text-brand/60 mt-3 space-y-1.5 list-disc pl-5">
+                    <li>vos trajets a venir sont annules et vos passagers prevenus ;</li>
+                    <li>vos reservations a venir sont annulees ;</li>
+                    <li>votre nom, e-mail, telephone et photo sont effaces.</li>
+                </ul>
+                <label for="delete-password" class="field-label mt-5">Confirmez avec votre mot de passe</label>
+                <input id="delete-password" type="password" name="password" required autocomplete="current-password" class="field">
+                <input type="hidden" name="_token" value="{{ csrf_token('delete-account') }}">
+                <div class="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end mt-6">
+                    <button type="button" data-modal-close class="px-5 py-2.5 rounded-full border border-brand/15 text-brand font-semibold text-sm hover:bg-cream transition">Annuler</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-full bg-red-600 hover:bg-red-700 text-white font-semibold text-sm transition">Supprimer mon compte</button>
+                </div>
+            </form>
+        </div>
     {% endif %}
 
     {# ══════════ MODE LECTURE ══════════ #}
@@ -235,6 +292,31 @@
             });
         });
         sync();
+    })();
+
+    // Apercu de la photo choisie, avant meme l'envoi
+    (() => {
+        const input   = document.querySelector('[data-avatar-input]');
+        const preview = document.querySelector('[data-avatar-preview]');
+        const remove  = document.querySelector('[data-avatar-remove]');
+        if (!input || !preview) return;
+        input.addEventListener('change', () => {
+            const file = input.files[0];
+            if (!file) return;
+            if (file.size > 4 * 1024 * 1024) { alertBox('Photo trop lourde (4 Mo maximum).'); input.value = ''; return; }
+            preview.src = URL.createObjectURL(file);
+            preview.hidden = false;
+            if (remove) remove.checked = false;
+        });
+        remove?.addEventListener('change', () => { preview.hidden = remove.checked; });
+
+        // Message d'erreur sous le champ (pas de alert() du navigateur)
+        function alertBox(text) {
+            const box = input.closest('[data-avatar-box]').querySelector('.form-error');
+            box.innerHTML = '';
+            const ul = document.createElement('ul'), li = document.createElement('li');
+            li.textContent = text; ul.appendChild(li); box.appendChild(ul);
+        }
     })();
 </script>
 {% endif %}

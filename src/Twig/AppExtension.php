@@ -4,7 +4,10 @@ namespace App\Twig;
 
 use App\Enum\LuggageSize;
 use App\Enum\MusicGenre;
+use App\Entity\User;
 use App\Repository\MessageRepository;
+use App\Repository\NotificationRepository;
+use App\Service\LivePublisher;
 use Symfony\Bundle\SecurityBundle\Security;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFilter;
@@ -19,6 +22,7 @@ final class AppExtension extends AbstractExtension
 
     public function __construct(
         private readonly MessageRepository $messageRepo,
+        private readonly NotificationRepository $notificationRepo,
         private readonly Security $security,
     ) {}
 
@@ -26,6 +30,9 @@ final class AppExtension extends AbstractExtension
     {
         return [
             new TwigFunction('unread_messages_count', [$this, 'getUnreadCount']),
+            new TwigFunction('unread_notifications_count', [$this, 'getUnreadNotificationsCount']),
+            // Sujet Mercure prive de l'utilisateur connecte (evenements en direct)
+            new TwigFunction('live_topic', fn (User $user) => LivePublisher::topicFor($user)),
         ];
     }
 
@@ -50,6 +57,13 @@ final class AppExtension extends AbstractExtension
         }
 
         return $this->messageRepo->countUnreadFor($user);
+    }
+
+    public function getUnreadNotificationsCount(): int
+    {
+        $user = $this->security->getUser();
+
+        return $user instanceof User ? $this->notificationRepo->countUnread($user) : 0;
     }
 
     public function formatDateFr(?\DateTimeInterface $date, string $format = 'short'): string

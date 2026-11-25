@@ -12,7 +12,7 @@ use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Component\Form\Extension\Core\Type\TelType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
-use Symfony\Component\Form\Extension\Core\Type\UrlType;
+use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\Length;
@@ -20,7 +20,7 @@ use Symfony\Component\Validator\Constraints\LessThan;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\GreaterThan;
 use Symfony\Component\Validator\Constraints\Regex;
-use Symfony\Component\Validator\Constraints\Url;
+use Symfony\Component\Validator\Constraints\Image;
 
 class ProfileFormType extends AbstractType
 {
@@ -65,16 +65,35 @@ class ProfileFormType extends AbstractType
                     new LessThan(value: '-18 years', message: 'Vous devez avoir au moins 18 ans.'),
                 ],
             ])
-            ->add('avatar', UrlType::class, [
-                'label'    => 'Photo de profil (lien URL)',
+            // Photo de profil : un FICHIER (pas enregistre directement dans l'entite : voir ProfileController)
+            ->add('avatarFile', FileType::class, [
+                'label'    => 'Photo de profil',
+                'mapped'   => false,
                 'required' => false,
-                'default_protocol' => 'https',
-                // Uniquement un lien http(s) vers une image : pas de "javascript:" ni d'autre protocole
+                'attr'     => ['accept' => 'image/jpeg,image/png,image/webp'],
                 'constraints' => [
-                    new Length(max: 255, maxMessage: 'Lien trop long (255 caracteres maximum).'),
-                    new Url(protocols: ['https', 'http'], requireTld: true, message: 'Ce lien n\'est pas une adresse web valide.'),
+                    // Image verifie le VRAI contenu du fichier (et pas juste son extension)
+                    new Image(
+                        maxSize: '4M',
+                        mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+                        minWidth: 100,
+                        minHeight: 100,
+                        maxWidth: 8000,
+                        maxHeight: 8000,
+                        maxSizeMessage: 'Photo trop lourde ({{ size }} {{ suffix }}). Maximum : {{ limit }} {{ suffix }}.',
+                        mimeTypesMessage: 'Format accepte : JPEG, PNG ou WebP.',
+                        minWidthMessage: 'Photo trop petite (100 pixels minimum).',
+                        minHeightMessage: 'Photo trop petite (100 pixels minimum).',
+                        maxWidthMessage: 'Photo trop grande (8000 pixels maximum).',
+                        maxHeightMessage: 'Photo trop grande (8000 pixels maximum).',
+                        uploadIniSizeErrorMessage: 'Photo trop lourde pour le serveur.',
+                    ),
                 ],
-                'attr'     => ['placeholder' => 'https://...'],
+            ])
+            ->add('removeAvatar', CheckboxType::class, [
+                'label'    => 'Supprimer ma photo',
+                'mapped'   => false,
+                'required' => false,
             ])
             ->add('musicGenre', EnumType::class, [
                 'class'        => MusicGenre::class,

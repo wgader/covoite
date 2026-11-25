@@ -67,6 +67,7 @@
 <body class="font-sans bg-cream text-ink min-h-screen flex flex-col">
 
 {% set unreadCount = app.user ? unread_messages_count() : 0 %}
+{% set notifCount  = app.user ? unread_notifications_count() : 0 %}
 {% set currentRoute = app.request.attributes.get('_route') %}
 
 {# ══════════════════════════ NAVBAR ══════════════════════════ #}
@@ -102,17 +103,25 @@
                     Mes trajets
                 </a>
 
+                {# NOTIFICATIONS (le badge est mis a jour en direct, voir le script "Temps reel" plus bas) #}
+                <a href="{{ path('app_notifications') }}" aria-label="Notifications"
+                   class="relative w-10 h-10 inline-flex items-center justify-center rounded-full transition
+                          {{ currentRoute == 'app_notifications' ? 'text-brand bg-cream' : 'text-brand/70 hover:text-brand hover:bg-cream' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>
+                    </svg>
+                    <span data-live-badge="notifications" {{ notifCount > 0 ? '' : 'hidden' }}
+                          class="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 bg-lime text-brand rounded-full flex items-center justify-center font-bold text-[10px] ring-2 ring-white">{{ notifCount > 9 ? '9+' : notifCount }}</span>
+                </a>
+
                 {# MESSAGES #}
                 <a href="{{ path('app_messages') }}" aria-label="Messages"
                    class="relative w-10 h-10 inline-flex items-center justify-center rounded-full text-brand/70 hover:text-brand hover:bg-cream transition">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                     </svg>
-                    {% if unreadCount > 0 %}
-                        <span class="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 bg-lime text-brand rounded-full flex items-center justify-center font-bold text-[10px] ring-2 ring-white">
-                            {{ unreadCount > 9 ? '9+' : unreadCount }}
-                        </span>
-                    {% endif %}
+                    <span data-live-badge="messages" {{ unreadCount > 0 ? '' : 'hidden' }}
+                          class="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 bg-lime text-brand rounded-full flex items-center justify-center font-bold text-[10px] ring-2 ring-white">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
                 </a>
 
                 {# MENU UTILISATEUR (clic, pas survol : fonctionne aussi sur mobile) #}
@@ -163,6 +172,13 @@
                             <svg class="w-4 h-4 text-brand/50" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.5 6H15a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h6.5"/></svg>
                             Mes trajets
                         </a>
+                        <a href="{{ path('app_notifications') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-brand rounded-xl hover:bg-cream transition">
+                            <svg class="w-4 h-4 text-brand/50" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>
+                            Notifications
+                            {% if notifCount > 0 %}
+                                <span class="ml-auto bg-lime text-brand text-[11px] font-bold px-2 py-0.5 rounded-full">{{ notifCount }}</span>
+                            {% endif %}
+                        </a>
                         <a href="{{ path('app_messages') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-brand rounded-xl hover:bg-cream transition">
                             <svg class="w-4 h-4 text-brand/50" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                             Messages
@@ -188,10 +204,15 @@
 
                         <div class="h-px bg-black/5 my-1.5"></div>
 
-                        <a href="{{ path('app_logout') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-red-600 rounded-xl hover:bg-red-50 transition">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-                            Se deconnecter
-                        </a>
+                        {# Deconnexion par formulaire POST + jeton CSRF : un autre site ne peut pas nous deconnecter
+                           a notre insu (avec un simple lien <img src="/deconnexion">, c'etait possible) #}
+                        <form action="{{ path('app_logout') }}" method="post">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('logout') }}">
+                            <button type="submit" class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-red-600 rounded-xl hover:bg-red-50 transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+                                Se deconnecter
+                            </button>
+                        </form>
                     </div>
                 </div>
             {% else %}
@@ -457,6 +478,66 @@
     });
 })();
 </script>
+
+{% if app.user %}
+{# ══════════ TEMPS REEL (Mercure) ══════════
+   mercure() renvoie l'adresse du hub ET pose un cookie qui autorise CE navigateur a ecouter
+   UNIQUEMENT le sujet prive de l'utilisateur connecte (voir App\Service\LivePublisher). #}
+<script data-live-url="{{ mercure(live_topic(app.user), {subscribe: live_topic(app.user)}) }}">
+(() => {
+    const url = document.currentScript.dataset.liveUrl;
+    if (!url || !window.EventSource) return;
+
+    const setBadge = (name, count) => document.querySelectorAll('[data-live-badge="' + name + '"]').forEach((b) => {
+        b.hidden = !(count > 0);
+        b.textContent = count > 9 ? '9+' : String(count);
+    });
+
+    // Petite bulle en haut a droite (meme style que les messages flash)
+    const toast = (title, text) => {
+        const box = document.getElementById('toasts');
+        if (!box) return;
+        const t = document.createElement('div');
+        t.setAttribute('role', 'status');
+        t.className = 'anim-toast pointer-events-auto flex items-start gap-3 bg-white rounded-2xl shadow-pop border border-black/5 p-4';
+        t.innerHTML = '<span class="w-8 h-8 rounded-full bg-lime/20 text-brand flex items-center justify-center shrink-0">'
+            + '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></span>'
+            + '<a href="{{ path('app_notifications') }}" class="flex-1 pt-0.5"><p class="text-sm font-bold text-brand"></p><p class="text-xs text-brand/60 leading-snug mt-0.5"></p></a>';
+        const [p1, p2] = t.querySelectorAll('p');
+        p1.textContent = title;   // textContent : le texte n'est jamais interprete comme du HTML
+        p2.textContent = text;
+        box.appendChild(t);
+        setTimeout(() => t.remove(), 7000);
+    };
+
+    let source = null, retry = 1000;
+    const connect = () => {
+        source = new EventSource(url, { withCredentials: true });
+        source.onopen = () => { retry = 1000; window.covoiteLive = true; };
+        source.onmessage = (e) => {
+            let data;
+            try { data = JSON.parse(e.data); } catch (err) { return; }
+            if (data.type === 'notification') {
+                setBadge('notifications', data.unread);
+                toast(data.title, data.text);
+            }
+            if (data.type === 'message' && typeof data.unread === 'number') {
+                setBadge('messages', data.unread);
+            }
+            // Les pages interessees (ex : la discussion ouverte) ecoutent cet evenement
+            window.dispatchEvent(new CustomEvent('covoite:live', { detail: data }));
+        };
+        source.onerror = () => {
+            window.covoiteLive = false;
+            source.close();
+            setTimeout(connect, retry);
+            retry = Math.min(retry * 2, 60000); // on reessaie de plus en plus lentement
+        };
+    };
+    connect();
+})();
+</script>
+{% endif %}
 
 {% block javascripts %}{% endblock %}
 </body>

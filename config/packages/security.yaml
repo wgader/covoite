@@ -19,6 +19,8 @@ security:
         main:
             lazy: true
             provider: app_user_provider
+            # Refuse la connexion des comptes supprimes ou suspendus (src/Security/UserChecker.php)
+            user_checker: App\Security\UserChecker
             form_login:
                 login_path: app_login
                 check_path: app_login
@@ -30,6 +32,8 @@ security:
                 interval: '15 minutes'
             logout:
                 path: app_logout
+                # Deconnexion uniquement avec un jeton CSRF (formulaire POST dans base.html.twig)
+                enable_csrf: true
                 # where to redirect after logout
                 # target: app_any_route
 

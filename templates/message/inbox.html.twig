@@ -30,4 +30,15 @@
 
 {% block javascripts %}
     {% include 'message/_list_search.html.twig' %}
+<script>
+/* En direct : un nouveau message arrive -> on recharge la liste des conversations */
+window.addEventListener('covoite:live', async (e) => {
+    if (e.detail.type !== 'message') return;
+    try {
+        const doc  = new DOMParser().parseFromString(await (await fetch(window.location.href)).text(), 'text/html');
+        const list = document.querySelector('[data-conv-list]'), next = doc.querySelector('[data-conv-list]');
+        if (list && next) list.innerHTML = next.innerHTML;
+    } catch (err) { /* on reessaiera au prochain message */ }
+});
+</script>
 {% endblock %}

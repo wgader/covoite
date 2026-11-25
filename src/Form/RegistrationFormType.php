@@ -56,8 +56,9 @@ class RegistrationFormType extends AbstractType
             ->add('phone', TelType::class, [
                 'label'    => false,
                 'required' => false,
-                'mapped'   => false, // à câbler sur l'entité User si tu veux le sauvegarder
+                // Enregistre dans User::phone (optionnel)
                 'constraints' => [
+                    new Length(max: 20),
                     new Regex(
                         pattern: '/^(\+33|0033|0)\s?[1-9](?:[\s.-]?\d{2}){4}$/', // espaces, points ou tirets acceptes
                         message: 'Numéro de téléphone français invalide (ex : 06 12 34 56 78).',
@@ -71,18 +72,8 @@ class RegistrationFormType extends AbstractType
                 'first_options'   => [
                     'label' => false,
                     'attr'  => ['autocomplete' => 'new-password'],
-                    'constraints' => [
-                        new NotBlank(message: 'Merci de choisir un mot de passe.'),
-                        new Length(
-                            min: 8,
-                            minMessage: 'Votre mot de passe doit contenir au moins {{ limit }} caractères.',
-                            max: 4096,
-                        ),
-                        new Regex(
-                            pattern: '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d])/',
-                            message: 'Le mot de passe doit contenir une majuscule, une minuscule, un chiffre et un caractère spécial.',
-                        ),
-                    ],
+                    // Memes regles partout (inscription, changement, oubli) : voir TextRules::password()
+                    'constraints' => TextRules::password(),
                 ],
                 'second_options' => [
                     'label' => false,

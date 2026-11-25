@@ -30,6 +30,10 @@ class Notification
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $readAt = null;
 
+    // Lien interne vers la page concernee (ex : "/mes-trajets/conducteur/12"), toujours un chemin relatif
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $link = null;
+
     #[ORM\ManyToOne(inversedBy: 'notifications')]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $user = null;
@@ -106,6 +110,18 @@ class Notification
     public function setUser(?User $user): static
     {
         $this->user = $user;
+
+        return $this;
+    }
+
+    public function getLink(): ?string
+    {
+        return $this->link;
+    }
+
+    public function setLink(?string $link): static
+    {
+        $this->link = $link;
 
         return $this;
     }

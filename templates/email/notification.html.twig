@@ -1,0 +1,10 @@
+{% extends 'email/_layout.html.twig' %}
+{# Variables : firstName, title, message, link (URL absolue ou null) #}
+{% block content %}
+    <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#5b8a1f;text-transform:uppercase;letter-spacing:1px;">{{ title }}</p>
+    <h1 style="margin:0 0 16px;font-size:22px;line-height:28px;color:#0F2D24;">Bonjour {{ firstName }},</h1>
+    <p style="margin:0 0 24px;font-size:15px;line-height:23px;color:#33463f;">{{ message }}</p>
+    {% if link %}
+        <a href="{{ link }}" style="display:inline-block;background:#8DC63F;color:#0F2D24;font-weight:700;font-size:15px;text-decoration:none;padding:13px 26px;border-radius:999px;">Voir sur Covoite</a>
+    {% endif %}
+{% endblock %}

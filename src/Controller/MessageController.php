@@ -9,6 +9,7 @@ use App\Entity\Trip;
 use App\Entity\User;
 use App\Enum\ConversationType;
 use App\Repository\MessageRepository;
+use App\Service\LivePublisher;
 use App\Validator\TextRules;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -45,6 +46,7 @@ final class MessageController extends AbstractController
         // 20 messages par minute maximum et par utilisateur (anti-spam), voir config/packages/rate_limiter.yaml
         #[Autowire(service: 'limiter.messages')]
         RateLimiterFactoryInterface $messagesLimiter,
+        LivePublisher $live,
     ): Response {
         $this->denyAccessUnlessGranted('ROLE_USER');
 
@@ -108,6 +110,11 @@ final class MessageController extends AbstractController
 
             $this->participant($conversation, $me)?->setLastReadAt(new \DateTimeImmutable());
             $em->flush();
+
+            // En direct : le destinataire voit le message arriver (et son compteur), sans recharger.
+            // On ne transmet PAS le contenu du message : la page le recharge elle-meme depuis le serveur.
+            $live->publish($partner, 'message', ['from' => $me->getId(), 'unread' => $repo->countUnreadFor($partner)]);
+            $live->publish($me, 'message', ['from' => $me->getId(), 'unread' => $repo->countUnreadFor($me)]);
 
             return $back;
         }
