@@ -8,6 +8,7 @@ use App\Enum\CancelledBy;
 use App\Enum\TripStatus;
 use App\Form\TripFormType;
 use App\Repository\TripRepository;
+use App\Service\PlaceSearch;
 use App\Service\TripMapFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -18,6 +19,9 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class TripController extends AbstractController
 {
+    /** Rayons proposes sur la page de resultats (km) */
+    private const RADII = [5, 10, 20, 30, 50];
+
     // ── RECHERCHE ──────────────────────────────────────────────────────────
     #[Route('/trajets', name: 'app_search')]
     public function search(
@@ -25,12 +29,61 @@ final class TripController extends AbstractController
         #[MapQueryParameter] string $from = '',
         #[MapQueryParameter] string $to = '',
         #[MapQueryParameter] string $date = '',
-        #[MapQueryParameter] int $seats = 1,
+        #[MapQueryParameter] string $seats = '1',
         #[MapQueryParameter] string $tri = 'depart',
+        // Remplis quand l'utilisateur choisit un lieu dans les suggestions (adresse, magasin, gare...)
+        #[MapQueryParameter] string $fromCity = '',
+        #[MapQueryParameter] string $fromLat = '',
+        #[MapQueryParameter] string $fromLng = '',
+        #[MapQueryParameter] string $toCity = '',
+        #[MapQueryParameter] string $toLat = '',
+        #[MapQueryParameter] string $toLng = '',
+        // Rayon autour du depart / de l'arrivee choisis (en km)
+        #[MapQueryParameter] string $rayon = '20',
     ): Response {
-        $sort  = in_array($tri, ['depart', 'prix'], true) ? $tri : 'depart';
-        $seats = max(1, $seats);
-        $trips = $repo->search(trim($from), trim($to), trim($date), $seats, $sort);
+        // Tout ce qui vient de l'URL peut avoir ete modifie a la main : on nettoie et on borne
+        $sort  = in_array($tri, ['depart', 'prix', 'proche'], true) ? $tri : 'depart';
+        $seats = min(8, max(1, (int) $seats));
+        [$from, $to, $fromCity, $toCity] = array_map(PlaceSearch::clean(...), [$from, $to, $fromCity, $toCity]);
+        [$fromLat, $fromLng, $toLat, $toLng] = array_map(fn (string $c) => is_numeric($c) && abs((float) $c) <= 180 ? $c : '', [$fromLat, $fromLng, $toLat, $toLng]);
+        $date  = preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : '';
+
+        // Lieu choisi dans la liste -> on cherche sur sa ville ("Leclerc Corgnac" -> "Limoges").
+        // Saisie libre -> on cherche sur le texte tape, comme avant.
+        $fromSearch = trim($fromCity) !== '' ? trim($fromCity) : trim($from);
+        $toSearch   = trim($toCity) !== '' ? trim($toCity) : trim($to);
+
+        // Points GPS choisis dans les suggestions -> recherche "autour de" (rayon en km)
+        $fromPoint = $fromLat !== '' && $fromLng !== '' ? [(float) $fromLat, (float) $fromLng] : null;
+        $toPoint   = $toLat !== '' && $toLng !== '' ? [(float) $toLat, (float) $toLng] : null;
+        $radius    = in_array((int) $rayon, self::RADII, true) ? (int) $rayon : 20;
+        $hasPoint  = $fromPoint !== null || $toPoint !== null;
+        if ($sort === 'proche' && !$hasPoint) {
+            $sort = 'depart';
+        }
+
+        $trips = $repo->search($fromSearch, $toSearch, trim($date), $seats, $sort === 'prix' ? 'prix' : 'depart', $fromPoint, $toPoint, $radius);
+
+        // Le SQL a garde un CARRE autour des points : on calcule la vraie distance et on garde le CERCLE
+        $distances = [];
+        $trips = array_values(array_filter($trips, function (Trip $t) use ($fromPoint, $toPoint, $radius, &$distances): bool {
+            $d = [
+                'from' => $this->kmFrom($fromPoint, $t->getDepartureLat(), $t->getDepartureLng()),
+                'to'   => $this->kmFrom($toPoint, $t->getArrivalLat(), $t->getArrivalLng()),
+            ];
+            if (($d['from'] ?? 0) > $radius || ($d['to'] ?? 0) > $radius) {
+                return false;
+            }
+            $distances[$t->getId()] = $d;
+
+            return true;
+        }));
+
+        // "Le plus proche" : depart + arrivee les plus proches de ce que je cherche, puis le plus tot
+        if ($sort === 'proche') {
+            usort($trips, fn (Trip $a, Trip $b) => [($distances[$a->getId()]['from'] ?? 0) + ($distances[$a->getId()]['to'] ?? 0), $a->getDepartureAt()]
+                <=> [($distances[$b->getId()]['from'] ?? 0) + ($distances[$b->getId()]['to'] ?? 0), $b->getDepartureAt()]);
+        }
 
         // Note moyenne de chaque conducteur (affichee sur les cartes)
         $ratings = [];
@@ -57,12 +110,18 @@ final class TripController extends AbstractController
             'seats'   => $seats,
             'sort'    => $sort,
             'total'   => count($trips),
+            // Le lieu choisi est garde pour les liens de tri et la barre de recherche (sans les valeurs vides)
+            'place'   => array_filter(compact('fromCity', 'fromLat', 'fromLng', 'toCity', 'toLat', 'toLng'), fn ($v) => $v !== ''),
+            'hasPoint'  => $hasPoint,
+            'radius'    => $radius,
+            'radii'     => self::RADII,
+            'distances' => $distances,
         ]);
     }
 
     // ── PUBLIER UN TRAJET ──────────────────────────────────────────────────
     #[Route('/trajets/nouveau', name: 'app_trip_new', methods: ['GET', 'POST'])]
-    public function new(Request $request, EntityManagerInterface $em): Response
+    public function new(Request $request, EntityManagerInterface $em, TripRepository $tripRepo): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
 
@@ -82,10 +141,11 @@ final class TripController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            if ($trip->getDepartureAt() <= new \DateTimeImmutable()) {
-                $this->addFlash('error', 'La date de depart doit etre dans le futur.');
+            $problem = $this->checkTrip($trip, $tripRepo);
+            if ($problem !== null) {
+                $this->addFlash('error', $problem);
 
-                return $this->render('trip/new.html.twig', ['tripForm' => $form]);
+                return $this->render('trip/new.html.twig', ['tripForm' => $form], new Response(null, 422));
             }
 
             $trip->setDriver($this->getUser());
@@ -100,12 +160,12 @@ final class TripController extends AbstractController
             return $this->redirectToRoute('app_ride_driver', ['id' => $trip->getId()]);
         }
 
-        return $this->render('trip/new.html.twig', ['tripForm' => $form]);
+        return $this->render('trip/new.html.twig', ['tripForm' => $form], new Response(null, $form->isSubmitted() ? 422 : 200));
     }
 
     // ── MODIFIER (uniquement un trajet a venir) ────────────────────────────
     #[Route('/trajets/{id}/modifier', name: 'app_trip_edit', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]
-    public function edit(Trip $trip, Request $request, EntityManagerInterface $em): Response
+    public function edit(Trip $trip, Request $request, EntityManagerInterface $em, TripRepository $tripRepo): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $this->assertDriver($trip);
@@ -128,14 +188,16 @@ final class TripController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            if ($trip->getDepartureAt() <= new \DateTimeImmutable()) {
-                $this->addFlash('error', 'La nouvelle date de depart doit etre dans le futur.');
+            $problem = $this->checkTrip($trip, $tripRepo);
+            if ($problem !== null) {
+                $this->addFlash('error', $problem);
 
+                // On reaffiche le formulaire avec ce que l'utilisateur a saisi (rien n'est enregistre : pas de flush)
                 return $this->render('trip/edit.html.twig', [
                     'trip'           => $trip,
                     'tripForm'       => $form,
                     'confirmedSeats' => $confirmedSeats,
-                ]);
+                ], new Response(null, 422));
             }
 
             $this->capSeatsToVehicle($trip);
@@ -154,7 +216,7 @@ final class TripController extends AbstractController
             'trip'           => $trip,
             'tripForm'       => $form,
             'confirmedSeats' => $confirmedSeats,
-        ]);
+        ], new Response(null, $form->isSubmitted() ? 422 : 200));
     }
 
     // ── MARQUER COMME TERMINE (apres l'heure de depart) ────────────────────
@@ -290,6 +352,68 @@ final class TripController extends AbstractController
     }
 
     // ── HELPERS ────────────────────────────────────────────────────────────
+
+    /**
+     * Regles metier d'un trajet, verifiees cote serveur (le JavaScript de l'assistant peut etre
+     * contourne). Renvoie le message d'erreur a afficher, ou null si tout va bien.
+     */
+    private function checkTrip(Trip $trip, TripRepository $tripRepo): ?string
+    {
+        $now = new \DateTimeImmutable();
+        $at  = $trip->getDepartureAt();
+
+        if ($at <= $now->modify('+15 minutes')) {
+            return 'Le depart doit etre au moins 15 minutes dans le futur.';
+        }
+        if ($at > $now->modify('+1 year')) {
+            return 'Vous ne pouvez pas publier un trajet a plus d\'un an.';
+        }
+
+        // Depart et arrivee au meme endroit
+        $sameCity = mb_strtolower(trim($trip->getDepartureCity())) === mb_strtolower(trim($trip->getArrivalCity()));
+        if ($sameCity && mb_strtolower(trim($trip->getDepartureAddress())) === mb_strtolower(trim($trip->getArrivalAddress()))) {
+            return 'Le point de depart et le point d\'arrivee sont identiques.';
+        }
+        if ($trip->getDepartureLat() !== null && $trip->getArrivalLat() !== null && $trip->getDepartureLng() !== null && $trip->getArrivalLng() !== null) {
+            $km = $this->distanceKm((float) $trip->getDepartureLat(), (float) $trip->getDepartureLng(), (float) $trip->getArrivalLat(), (float) $trip->getArrivalLng());
+            if ($km < 1) {
+                return 'Le depart et l\'arrivee sont a moins d\'1 km : ce n\'est pas un covoiturage.';
+            }
+        }
+
+        // Annonce en double ou trajets qui se chevauchent (meme conducteur, a moins de 2 h d'ecart)
+        $overlap = $tripRepo->findOverlapping($trip->getDriver() ?? $this->getUser(), $at, $trip->getId());
+        if ($overlap !== []) {
+            $other = $overlap[0];
+            $same  = mb_strtolower($other->getDepartureCity()) === mb_strtolower($trip->getDepartureCity())
+                && mb_strtolower($other->getArrivalCity()) === mb_strtolower($trip->getArrivalCity());
+
+            return ($same ? 'Vous avez deja publie ce trajet' : 'Vous avez deja un trajet a cette heure-la')
+                . ' (' . $other->getDepartureCity() . ' → ' . $other->getArrivalCity()
+                . ', le ' . $other->getDepartureAt()->format('d/m') . ' a ' . $other->getDepartureAt()->format('H\hi') . ').'
+                . ' Laissez au moins 2 h entre deux departs, ou modifiez l\'annonce existante.';
+        }
+
+        return null;
+    }
+
+    /** Distance (km) entre le point cherche et un point du trajet, ou null si l'un des deux est inconnu. */
+    private function kmFrom(?array $point, ?string $lat, ?string $lng): ?float
+    {
+        if ($point === null || $lat === null || $lng === null) {
+            return null;
+        }
+
+        return round($this->distanceKm($point[0], $point[1], (float) $lat, (float) $lng), 1);
+    }
+
+    private function distanceKm(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $a = sin(deg2rad($lat2 - $lat1) / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin(deg2rad($lng2 - $lng1) / 2) ** 2;
+
+        return 6371 * 2 * atan2(sqrt($a), sqrt(1 - $a));
+    }
+
     private function assertDriver(Trip $trip): void
     {
         $user = $this->getUser();

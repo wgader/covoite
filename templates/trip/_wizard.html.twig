@@ -60,11 +60,11 @@
         <section data-step data-title="Depart" hidden>
             <p class="text-sm font-semibold text-lime">{{ isEdit ? 'Modifier le depart' : 'C\'est parti' }}</p>
             <h1 class="text-3xl sm:text-4xl font-extrabold text-brand tracking-tight mt-1">D'ou partez-vous ?</h1>
-            <p class="text-sm text-brand/50 mt-2">Une adresse precise, une gare, un parking... Vos passagers vous retrouveront la.</p>
+            <p class="text-sm text-brand/50 mt-2">Une adresse, une gare, le parking d'un magasin... Vos passagers vous retrouveront la.</p>
 
             <div class="relative mt-7" data-geo="departure">
                 <svg class="w-5 h-5 text-brand absolute left-5 top-[1.35rem] pointer-events-none" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><circle cx="12" cy="12" r="8.5"/></svg>
-                {{ form_widget(tripForm.departureAddress, {attr: {class: 'wz-input', placeholder: 'Ex : Gare d\'Angouleme', autocomplete: 'off', 'data-geo-input': '', 'data-required': 'Indiquez un point de depart.'}}) }}
+                {{ form_widget(tripForm.departureAddress, {attr: {class: 'wz-input', placeholder: 'Adresse, gare, magasin, parking...', autocomplete: 'off', 'data-geo-input': '', 'data-required': 'Indiquez un point de depart.'}}) }}
                 <ul data-geo-list hidden class="anim-fade absolute z-30 left-0 right-0 mt-2 bg-white rounded-2xl shadow-pop border border-black/5 py-2 max-h-80 overflow-auto"></ul>
                 <div class="form-error">{{ form_errors(tripForm.departureAddress) }}</div>
 
@@ -103,7 +103,7 @@
 
             <div class="relative mt-7" data-geo="arrival">
                 <svg class="w-5 h-5 text-brand absolute left-5 top-[1.35rem] pointer-events-none" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
-                {{ form_widget(tripForm.arrivalAddress, {attr: {class: 'wz-input', placeholder: 'Ex : Place de la Republique, Limoges', autocomplete: 'off', 'data-geo-input': '', 'data-required': 'Indiquez votre destination.'}}) }}
+                {{ form_widget(tripForm.arrivalAddress, {attr: {class: 'wz-input', placeholder: 'Adresse, gare, magasin, ville...', autocomplete: 'off', 'data-geo-input': '', 'data-required': 'Indiquez votre destination.'}}) }}
                 <ul data-geo-list hidden class="anim-fade absolute z-30 left-0 right-0 mt-2 bg-white rounded-2xl shadow-pop border border-black/5 py-2 max-h-80 overflow-auto"></ul>
                 <div class="form-error">{{ form_errors(tripForm.arrivalAddress) }}</div>
 
@@ -139,24 +139,49 @@
         <section data-step data-title="Date" hidden>
             <h1 class="text-3xl sm:text-4xl font-extrabold text-brand tracking-tight">Quand partez-vous ?</h1>
 
-            <p class="text-xs font-semibold uppercase tracking-widest text-brand/40 mt-8">Jour</p>
-            <div class="flex flex-wrap gap-2 mt-3" data-day-chips>
-                <button type="button" class="wz-chip" data-day-offset="0">Aujourd'hui</button>
-                <button type="button" class="wz-chip" data-day-offset="1">Demain</button>
-                <button type="button" class="wz-chip" data-day-offset="2" data-day-label></button>
-                <label class="wz-chip relative">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
-                    <input type="date" data-date-input min="{{ 'now'|date('Y-m-d') }}" class="bg-transparent outline-none text-sm font-semibold w-[8.5rem] cursor-pointer">
-                </label>
-            </div>
+            <div class="mt-8 grid sm:grid-cols-[minmax(0,20rem)_1fr] gap-8 sm:gap-10 items-start">
 
-            <p class="text-xs font-semibold uppercase tracking-widest text-brand/40 mt-8">Heure de depart</p>
-            <div class="flex flex-wrap items-center gap-2 mt-3">
-                <input type="time" data-time-input step="300"
-                       class="bg-white border-2 border-black/10 focus:border-lime rounded-2xl px-5 py-3 text-2xl font-extrabold text-brand outline-none transition">
-                {% for t in ['07:00', '08:00', '12:00', '17:30', '19:00'] %}
-                    <button type="button" class="wz-chip" data-time-chip="{{ t }}">{{ t|replace({':': 'h'}) }}</button>
-                {% endfor %}
+                {# ── Jour : raccourcis + calendrier maison (assets/datepicker.js) ── #}
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-widest text-brand/40">Jour</p>
+                    <div class="flex flex-wrap gap-2 mt-3" data-day-chips>
+                        <button type="button" class="wz-chip" data-day-offset="0">Aujourd'hui</button>
+                        <button type="button" class="wz-chip" data-day-offset="1">Demain</button>
+                        <button type="button" class="wz-chip" data-day-offset="2" data-day-label></button>
+                    </div>
+                    <div data-calendar class="mt-4 bg-white rounded-3xl border border-black/5 shadow-card p-4"></div>
+                    <input type="hidden" data-date-input>
+                </div>
+
+                {# ── Heure : deux compteurs (heures / minutes de 5 en 5) + heures frequentes ── #}
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-widest text-brand/40">Heure de depart</p>
+                    <div class="mt-3 inline-flex items-center gap-1 bg-white rounded-3xl border border-black/5 shadow-card px-3 py-2">
+                        {% for unit in ['h', 'm'] %}
+                            <div class="flex flex-col items-center">
+                                <button type="button" data-time-step="{{ unit }}" data-dir="1" aria-label="{{ unit == 'h' ? 'Heure suivante' : '5 minutes de plus' }}"
+                                        class="w-12 h-9 rounded-full flex items-center justify-center text-brand/50 hover:text-brand hover:bg-cream transition">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg>
+                                </button>
+                                <span data-time-{{ unit }} role="spinbutton" tabindex="0" aria-label="{{ unit == 'h' ? 'Heures' : 'Minutes' }}"
+                                      class="w-16 text-center text-4xl font-extrabold text-brand tabular-nums rounded-2xl outline-none focus-visible:ring-4 focus-visible:ring-lime/40">--</span>
+                                <button type="button" data-time-step="{{ unit }}" data-dir="-1" aria-label="{{ unit == 'h' ? 'Heure precedente' : '5 minutes de moins' }}"
+                                        class="w-12 h-9 rounded-full flex items-center justify-center text-brand/50 hover:text-brand hover:bg-cream transition">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+                                </button>
+                            </div>
+                            {% if unit == 'h' %}<span class="text-3xl font-extrabold text-lime pb-1">h</span>{% endif %}
+                        {% endfor %}
+                    </div>
+                    <input type="hidden" data-time-input>
+
+                    <p class="text-xs text-brand/40 mt-5 mb-2">Heures frequentes</p>
+                    <div class="flex flex-wrap gap-2">
+                        {% for t in ['07:00', '08:00', '12:00', '17:30', '19:00'] %}
+                            <button type="button" class="wz-chip" data-time-chip="{{ t }}">{{ t|replace({':': 'h'}) }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
 
             {# Le vrai champ Symfony, rempli automatiquement #}
@@ -451,16 +476,16 @@
         submit.textContent = isEdit ? 'Enregistrement...' : 'Publication...';
     });
 
-    // ═══════════ AUTOCOMPLETION D'ADRESSE (API Geoplateforme de l'IGN, gratuite) ═══════════
+    // ═══════════ AUTOCOMPLETION D'ADRESSE (moteur commun : assets/places.js) ═══════════
+    // Adresses, magasins, gares, villes... tries du plus proche au plus loin de l'utilisateur.
     form.querySelectorAll('[data-geo]').forEach((box) => {
         const input  = $('[data-geo-input]', box);
-        const list   = $('[data-geo-list]', box);
         const city   = $('[data-geo-city-input]', box);
         const cp     = $('[data-geo-cp-input]', box);
         const lat    = $('[data-geo-lat]', box);
         const lng    = $('[data-geo-lng]', box);
         const picked = $('[data-geo-picked]', box);
-        let timer = null, results = [], active = -1, controller = null;
+        const manual = $('[data-geo-manual]', box);
 
         const showPicked = () => {
             picked.hidden = !(city.value && cp.value);
@@ -469,67 +494,28 @@
         };
         showPicked();
 
-        const render = () => {
-            list.innerHTML = '';
-            results.forEach((f, i) => {
-                const p  = f.properties;
-                const li = document.createElement('li');
-                li.innerHTML =
-                    '<button type="button" class="w-full text-left flex items-center gap-3 px-4 py-3 ' + (i === active ? 'bg-cream' : 'hover:bg-cream') + '">' +
-                    '<svg class="w-5 h-5 text-brand/40 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>' +
-                    '<span class="min-w-0"><span class="block text-sm font-semibold text-brand truncate"></span><span class="block text-xs text-brand/50 truncate"></span></span></button>';
-                const spans = li.querySelectorAll('span span');
-                spans[0].textContent = p.name || p.label;
-                spans[1].textContent = [p.postcode, p.city, p.context].filter(Boolean).join(' · ');
-                li.firstChild.addEventListener('mousedown', (e) => { e.preventDefault(); choose(f); });
-                list.appendChild(li);
-            });
-            list.hidden = results.length === 0;
-        };
-
-        const choose = (f) => {
-            const p = f.properties;
-            input.value = p.type === 'municipality' ? p.label : (p.name + ', ' + p.city);
-            city.value  = p.city || p.name || '';
-            cp.value    = p.postcode || '';
-            lng.value   = f.geometry.coordinates[0];
-            lat.value   = f.geometry.coordinates[1];
-            results = []; list.hidden = true;
-            showPicked();
-            picked.classList.remove('pop'); void picked.offsetWidth; picked.classList.add('pop');
-        };
-
-        input.addEventListener('input', () => {
-            // L'utilisateur retape : l'ancienne selection n'est plus valable
-            city.value = ''; cp.value = ''; lat.value = ''; lng.value = '';
-            showPicked();
-            clearTimeout(timer);
-            const q = input.value.trim();
-            if (q.length < 3) { results = []; render(); return; }
-            timer = setTimeout(async () => {
-                if (controller) controller.abort();
-                controller = new AbortController();
-                try {
-                    const r = await fetch('https://data.geopf.fr/geocodage/search?limit=5&autocomplete=1&q=' + encodeURIComponent(q), { signal: controller.signal });
-                    const data = await r.json();
-                    results = data.features || [];
-                    active = -1;
-                    render();
-                } catch (err) {
-                    if (err.name !== 'AbortError') $('[data-geo-manual]', box).open = true; // API indisponible : saisie manuelle
-                }
-            }, 220);
+        Places.attach(input, $('[data-geo-list]', box), {
+            mode: 'tout',
+            enterPicksFirst: true, // Entree = 1re suggestion (et pas "etape suivante")
+            // Adresse complete gardee pour le trajet : "E.Leclerc, Impasse Diderot, 16000 Angouleme"
+            display: Places.fullText,
+            onType: () => {
+                // L'utilisateur retape : l'ancienne selection n'est plus valable
+                city.value = ''; cp.value = ''; lat.value = ''; lng.value = '';
+                showPicked();
+            },
+            onPick: (p) => {
+                city.value = p.city;
+                cp.value   = p.postcode;
+                lat.value  = p.lat;
+                lng.value  = p.lng;
+                // Certaines grandes villes ont plusieurs codes postaux : l'API n'en donne pas, on le demande
+                if (!p.postcode) { manual.open = true; setTimeout(() => cp.focus(), 50); }
+                showPicked();
+                picked.classList.remove('pop'); void picked.offsetWidth; picked.classList.add('pop');
+            },
+            onError: () => { manual.open = true; }, // serveur injoignable : saisie manuelle
         });
-
-        input.addEventListener('keydown', (e) => {
-            if (list.hidden) return;
-            if (e.key === 'ArrowDown') { e.preventDefault(); active = (active + 1) % results.length; render(); }
-            if (e.key === 'ArrowUp')   { e.preventDefault(); active = (active - 1 + results.length) % results.length; render(); }
-            // stopPropagation : Entree choisit l'adresse SANS passer a l'etape suivante
-            if (e.key === 'Enter')     { e.preventDefault(); e.stopPropagation(); choose(results[Math.max(active, 0)]); }
-            if (e.key === 'Escape')    { list.hidden = true; }
-        });
-        input.addEventListener('blur', () => setTimeout(() => { list.hidden = true; }, 120));
         [city, cp].forEach((el) => el.addEventListener('input', showPicked));
     });
 
@@ -537,16 +523,46 @@
     const dt        = $('[data-datetime]');
     const dateInput = $('[data-date-input]');
     const timeInput = $('[data-time-input]');
+    const hEl       = $('[data-time-h]');
+    const mEl       = $('[data-time-m]');
     const pad = (n) => String(n).padStart(2, '0');
     const iso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
     const dayFrom = (offset) => { const d = new Date(); d.setDate(d.getDate() + offset); return d; };
 
     $('[data-day-label]').textContent = DAYS[dayFrom(2).getDay()].replace(/^./, (c) => c.toUpperCase()) + ' ' + dayFrom(2).getDate();
 
+    // Modification d'un trajet : on repart de la date deja enregistree
     if (dt.value) { [dateInput.value, timeInput.value] = dt.value.slice(0, 16).split('T'); }
+
+    // Calendrier maison (assets/datepicker.js) a la place du calendrier du navigateur
+    let shownDate = dateInput.value;
+    const cal = DatePicker.calendar($('[data-calendar]'), {
+        value: dateInput.value,
+        min: iso(new Date()),
+        onSelect: (v) => { dateInput.value = shownDate = v; syncDate(); },
+    });
+
+    // Heure : fleches haut/bas (heures 0-23, minutes de 5 en 5). 1er clic = 08h00.
+    const stepTime = (unit, dir) => {
+        if (!timeInput.value) { timeInput.value = '08:00'; syncDate(); return; }
+        let [h, m] = timeInput.value.split(':').map(Number);
+        m = Math.round(m / 5) * 5 % 60;
+        if (unit === 'h') h = (h + dir + 24) % 24;
+        else m = (m + dir * 5 + 60) % 60;
+        timeInput.value = pad(h) + ':' + pad(m);
+        syncDate();
+    };
+    form.querySelectorAll('[data-time-step]').forEach((b) => b.addEventListener('click', () => stepTime(b.dataset.timeStep, +b.dataset.dir)));
+    [[hEl, 'h'], [mEl, 'm']].forEach(([el, unit]) => el.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); stepTime(unit, e.key === 'ArrowUp' ? 1 : -1); }
+    }));
 
     const syncDate = () => {
         dt.value = dateInput.value && timeInput.value ? dateInput.value + 'T' + timeInput.value : '';
+        if (dateInput.value !== shownDate) { shownDate = dateInput.value; cal.setValue(dateInput.value); } // un raccourci a change le jour
+        const [h, m] = timeInput.value ? timeInput.value.split(':') : ['--', '--'];
+        hEl.textContent = h;
+        mEl.textContent = m;
         form.querySelectorAll('[data-day-offset]').forEach((b) => b.setAttribute('aria-pressed', String(iso(dayFrom(+b.dataset.dayOffset)) === dateInput.value)));
         form.querySelectorAll('[data-time-chip]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.timeChip === timeInput.value)));
         const summary = $('[data-date-summary]');
@@ -560,7 +576,6 @@
     };
     form.querySelectorAll('[data-day-offset]').forEach((b) => b.addEventListener('click', () => { dateInput.value = iso(dayFrom(+b.dataset.dayOffset)); syncDate(); }));
     form.querySelectorAll('[data-time-chip]').forEach((b) => b.addEventListener('click', () => { timeInput.value = b.dataset.timeChip; syncDate(); }));
-    [dateInput, timeInput].forEach((el) => el.addEventListener('input', syncDate));
     syncDate();
 
     // ═══════════ VEHICULE + PLACES ═══════════
@@ -655,6 +670,8 @@
     // Si Symfony a renvoye des erreurs, on ouvre directement la premiere etape concernee
     const errorStep = steps.findIndex((s) => s.querySelector('.form-error li'));
     steps[0].hidden = false;
-    show(errorStep >= 0 ? errorStep : (isEdit ? steps.length - 1 : 0), 1);
+    // Formulaire deja envoye mais refuse (ex : annonce en double) : on revient sur le recapitulatif
+    const wasSubmitted = {{ tripForm.vars.submitted ? 'true' : 'false' }};
+    show(errorStep >= 0 ? errorStep : (isEdit || wasSubmitted ? steps.length - 1 : 0), 1);
 })();
 </script>

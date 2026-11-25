@@ -1,12 +1,15 @@
 {#
     Barre de recherche de trajets, utilisee sur l'accueil et sur la page de resultats.
     Variables optionnelles : from, to, date, seats, size ('lg' sur l'accueil, 'md' ailleurs)
-    L'autocompletion des villes est geree dans base.html.twig (attribut data-city-input).
+    + fromCity/fromLat/fromLng et toCity/toLat/toLng (lieu choisi dans la liste de suggestions).
+    L'autocompletion est branchee dans base.html.twig (attribut data-place), le moteur dans assets/places.js.
 #}
 {% set from  = from  ?? '' %}
 {% set to    = to    ?? '' %}
 {% set date  = date  ?? '' %}
 {% set seats = seats ?? 1 %}
+{% set fromCity = fromCity ?? '' %}{% set fromLat = fromLat ?? '' %}{% set fromLng = fromLng ?? '' %}
+{% set toCity   = toCity   ?? '' %}{% set toLat   = toLat   ?? '' %}{% set toLng   = toLng   ?? '' %}
 {% set lg    = (size ?? 'md') == 'lg' %}
 
 <form action="{{ path('app_search') }}" method="GET" data-search-form
@@ -14,16 +17,20 @@
              grid grid-cols-1 md:grid-cols-[1fr_auto_1fr_auto_auto_auto] md:items-center">
 
     {# ── Depart ── #}
-    <div class="relative" data-city>
+    <div class="relative" data-place="tout">
         <label class="flex items-center gap-3 px-4 {{ lg ? 'py-3' : 'py-2.5' }} rounded-2xl hover:bg-cream/70 transition cursor-text">
             <span class="w-2.5 h-2.5 rounded-full border-[2.5px] border-brand shrink-0"></span>
             <span class="flex-1 min-w-0">
                 <span class="block text-[11px] font-semibold text-brand/50">Depart</span>
-                <input type="text" name="from" value="{{ from }}" placeholder="Ville de depart" autocomplete="off" data-city-input
+                <input type="text" name="from" value="{{ from }}" placeholder="Ville, adresse, gare, magasin..." autocomplete="off" spellcheck="false" maxlength="100" data-place-input
                        class="w-full text-sm font-semibold text-brand placeholder:text-brand/30 placeholder:font-normal outline-none bg-transparent">
             </span>
         </label>
-        <ul data-city-list hidden class="anim-fade absolute z-40 left-0 right-0 md:w-80 mt-2 bg-white rounded-2xl shadow-pop border border-black/5 py-2"></ul>
+        {# Lieu choisi dans la liste (vide si saisie libre) : la recherche se fait sur la ville #}
+        <input type="hidden" name="fromCity" value="{{ fromCity }}" data-place-city>
+        <input type="hidden" name="fromLat" value="{{ fromLat }}" data-place-lat>
+        <input type="hidden" name="fromLng" value="{{ fromLng }}" data-place-lng>
+        <ul data-place-list hidden class="anim-fade absolute z-40 left-0 right-0 md:w-[26rem] mt-2 bg-white rounded-2xl shadow-pop border border-black/5 py-2 max-h-[26rem] overflow-auto"></ul>
     </div>
 
     {# ── Inverser ── #}
@@ -33,27 +40,36 @@
     </button>
 
     {# ── Arrivee ── #}
-    <div class="relative md:border-l md:border-black/5" data-city>
+    <div class="relative md:border-l md:border-black/5" data-place="tout">
         <label class="flex items-center gap-3 px-4 {{ lg ? 'py-3' : 'py-2.5' }} rounded-2xl hover:bg-cream/70 transition cursor-text">
             <span class="w-2.5 h-2.5 rounded-full bg-brand shrink-0"></span>
             <span class="flex-1 min-w-0">
                 <span class="block text-[11px] font-semibold text-brand/50">Arrivee</span>
-                <input type="text" name="to" value="{{ to }}" placeholder="Ville d'arrivee" autocomplete="off" data-city-input
+                <input type="text" name="to" value="{{ to }}" placeholder="Ou allez-vous ?" autocomplete="off" spellcheck="false" maxlength="100" data-place-input
                        class="w-full text-sm font-semibold text-brand placeholder:text-brand/30 placeholder:font-normal outline-none bg-transparent">
             </span>
         </label>
-        <ul data-city-list hidden class="anim-fade absolute z-40 left-0 right-0 md:w-80 mt-2 bg-white rounded-2xl shadow-pop border border-black/5 py-2"></ul>
+        {# Lieu choisi dans la liste (vide si saisie libre) : la recherche se fait sur la ville #}
+        <input type="hidden" name="toCity" value="{{ toCity }}" data-place-city>
+        <input type="hidden" name="toLat" value="{{ toLat }}" data-place-lat>
+        <input type="hidden" name="toLng" value="{{ toLng }}" data-place-lng>
+        <ul data-place-list hidden class="anim-fade absolute z-40 left-0 right-0 md:w-[26rem] mt-2 bg-white rounded-2xl shadow-pop border border-black/5 py-2 max-h-[26rem] overflow-auto"></ul>
     </div>
 
-    {# ── Date ── #}
-    <label class="flex items-center gap-3 px-4 {{ lg ? 'py-3' : 'py-2.5' }} rounded-2xl hover:bg-cream/70 transition cursor-pointer md:border-l md:border-black/5">
-        <svg class="w-5 h-5 text-brand/60 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
-        <span>
-            <span class="block text-[11px] font-semibold text-brand/50">Date</span>
-            <input type="date" name="date" value="{{ date }}" min="{{ 'now'|date('Y-m-d') }}"
-                   class="text-sm font-semibold text-brand outline-none bg-transparent cursor-pointer">
-        </span>
-    </label>
+    {# ── Date : calendrier maison (assets/datepicker.js), branche dans base.html.twig ── #}
+    <div class="relative md:border-l md:border-black/5" data-datepicker>
+        <button type="button" data-date-trigger aria-expanded="false"
+                class="w-full flex items-center gap-3 px-4 {{ lg ? 'py-3' : 'py-2.5' }} rounded-2xl hover:bg-cream/70 transition text-left">
+            <svg class="w-5 h-5 text-brand/60 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+            <span class="min-w-0">
+                <span class="block text-[11px] font-semibold text-brand/50">Date</span>
+                <span data-date-label class="block text-sm font-semibold text-brand whitespace-nowrap md:min-w-[6.5rem]">{{ date ?: 'Quand ?' }}</span>
+            </span>
+        </button>
+        <input type="hidden" name="date" value="{{ date }}" data-date-value>
+        <div data-date-pop hidden role="dialog" aria-label="Choisir une date"
+             class="anim-fade absolute z-40 left-0 right-0 md:right-auto md:w-[21rem] mt-2 bg-white rounded-3xl shadow-pop border border-black/5 p-4"></div>
+    </div>
 
     {# ── Passagers ── #}
     <label class="flex items-center gap-3 px-4 {{ lg ? 'py-3' : 'py-2.5' }} rounded-2xl hover:bg-cream/70 transition cursor-pointer md:border-l md:border-black/5">

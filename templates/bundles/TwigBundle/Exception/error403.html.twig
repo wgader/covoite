@@ -1,0 +1,12 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Acces refuse — Covoite{% endblock %}
+
+{% block body %}
+    {% include '@Twig/Exception/_error_card.html.twig' with {
+        code: 403,
+        icon: 'lock',
+        title: 'Acces refuse',
+        text: 'Cette page appartient a un autre membre : vous ne pouvez ni la voir ni la modifier.',
+    } %}
+{% endblock %}

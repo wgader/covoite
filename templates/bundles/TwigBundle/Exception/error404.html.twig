@@ -1,0 +1,12 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Page introuvable — Covoite{% endblock %}
+
+{% block body %}
+    {% include '@Twig/Exception/_error_card.html.twig' with {
+        code: 404,
+        icon: 'map',
+        title: 'On s\'est perdus en route',
+        text: 'Cette page n\'existe pas ou plus : le trajet a peut-etre ete supprime, ou le lien est incorrect.',
+    } %}
+{% endblock %}

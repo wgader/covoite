@@ -22,6 +22,7 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\Range;
+use App\Validator\TextRules;
 
 /**
  * Formulaire de publication / modification d'un trajet.
@@ -37,44 +38,53 @@ class TripFormType extends AbstractType
         $builder
             // ── Depart (rempli automatiquement par l'autocompletion d'adresse)
             ->add('departureAddress', TextType::class, [
-                'constraints' => [new NotBlank(message: 'Indiquez votre point de depart.'), new Length(max: 255)],
+                'constraints' => TextRules::line('l\'adresse de depart', min: 3),
             ])
             ->add('departureCity', TextType::class, [
-                'constraints' => [new NotBlank(message: 'La ville de depart est obligatoire.'), new Length(max: 100)],
+                'constraints' => TextRules::city('la ville de depart'),
             ])
             ->add('departurePostalCode', TextType::class, [
-                'constraints' => [new NotBlank(message: 'Le code postal est obligatoire.'), new Length(max: 10)],
+                'constraints' => TextRules::postalCode(),
             ])
-            ->add('departureLat', HiddenType::class, ['required' => false])
-            ->add('departureLng', HiddenType::class, ['required' => false])
+            ->add('departureLat', HiddenType::class, ['required' => false, 'constraints' => TextRules::coordinate(90)])
+            ->add('departureLng', HiddenType::class, ['required' => false, 'constraints' => TextRules::coordinate(180)])
 
             // ── Arrivee
             ->add('arrivalAddress', TextType::class, [
-                'constraints' => [new NotBlank(message: 'Indiquez votre destination.'), new Length(max: 255)],
+                'constraints' => TextRules::line('l\'adresse d\'arrivee', min: 3),
             ])
             ->add('arrivalCity', TextType::class, [
-                'constraints' => [new NotBlank(message: 'La ville d\'arrivee est obligatoire.'), new Length(max: 100)],
+                'constraints' => TextRules::city('la ville d\'arrivee'),
             ])
             ->add('arrivalPostalCode', TextType::class, [
-                'constraints' => [new NotBlank(message: 'Le code postal est obligatoire.'), new Length(max: 10)],
+                'constraints' => TextRules::postalCode(),
             ])
-            ->add('arrivalLat', HiddenType::class, ['required' => false])
-            ->add('arrivalLng', HiddenType::class, ['required' => false])
+            ->add('arrivalLat', HiddenType::class, ['required' => false, 'constraints' => TextRules::coordinate(90)])
+            ->add('arrivalLng', HiddenType::class, ['required' => false, 'constraints' => TextRules::coordinate(180)])
 
             // ── Date et heure (un seul champ, rempli par les selecteurs date + heure en JS)
             ->add('departureAt', DateTimeType::class, [
                 'widget'      => 'single_text',
                 'input'       => 'datetime_immutable',
+                'invalid_message' => 'Date ou heure invalide.',
                 'constraints' => [new NotBlank(message: 'Choisissez une date et une heure de depart.')],
             ])
 
             // ── Places et prix
             ->add('availableSeats', IntegerType::class, [
-                'constraints' => [new NotBlank(), new Range(min: 1, max: 8)],
+                'invalid_message' => 'Le nombre de places doit etre un nombre entier.',
+                'constraints' => [
+                    new NotBlank(message: 'Indiquez le nombre de places.'),
+                    new Range(min: 1, max: 8, notInRangeMessage: 'Entre {{ min }} et {{ max }} places.'),
+                ],
             ])
             ->add('price', NumberType::class, [
                 'scale'       => 2,
-                'constraints' => [new NotBlank(message: 'Indiquez un prix.'), new Range(min: 0, max: 500)],
+                'invalid_message' => 'Le prix doit etre un nombre (ex : 12,50).',
+                'constraints' => [
+                    new NotBlank(message: 'Indiquez un prix.'),
+                    new Range(min: 0, max: 500, notInRangeMessage: 'Le prix doit etre entre {{ min }} et {{ max }} euros par place.'),
+                ],
             ])
 
             // ── Confort
@@ -96,7 +106,7 @@ class TripFormType extends AbstractType
             ])
             ->add('bio', TextareaType::class, [
                 'required'    => false,
-                'constraints' => [new Length(max: 1000)],
+                'constraints' => TextRules::text('la description', max: 1000),
             ]);
 
         if ($driver !== null) {
@@ -105,6 +115,8 @@ class TripFormType extends AbstractType
                 'required'      => false,
                 'expanded'      => true,  // cartes cliquables
                 'placeholder'   => false,
+                // Seuls MES vehicules sont proposes (query_builder) : envoyer l'id du vehicule d'un autre = erreur
+                'invalid_message' => 'Ce vehicule n\'est pas a vous.',
                 'query_builder' => fn (EntityRepository $er) => $er->createQueryBuilder('v')
                     ->where('v.owner = :driver')
                     ->setParameter('driver', $driver)

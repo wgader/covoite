@@ -1,77 +1,190 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Laisser un avis — Covoite{% endblock %}
+{% block title %}Noter {{ target.firstName }} — Covoite{% endblock %}
+
+{#
+    Laisser un avis apres un trajet termine.
+    Variables : booking, trip, target (la personne notee), type (ReviewType), reviewForm, backUrl
+    Les etoiles sont les vrais boutons radio du formulaire Symfony (caches), habilles en SVG :
+    sans JavaScript, cliquer une etoile coche quand meme la bonne note.
+#}
+{% set isDriver = type.value == 'driver' %}
+{% set tags = isDriver
+    ? ['Ponctuel', 'Conduite prudente', 'Voiture propre', 'Bonne ambiance', 'Bonne musique', 'Trajet agreable']
+    : ['Ponctuel', 'Sympathique', 'Respectueux', 'Bonne ambiance', 'Discret', 'Je recommande'] %}
 
 {% block body %}
-<div class="max-w-lg mx-auto px-6 py-10">
+<div class="max-w-xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
 
-    <a href="{{ path('app_account') }}"
-       class="inline-flex items-center gap-1.5 text-sm text-brand/50 hover:text-brand mb-6 transition">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
-        </svg>
-        Retour au compte
+    <a href="{{ backUrl }}" class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand/50 hover:text-brand transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+        Retour au trajet
     </a>
 
-    <h1 class="text-2xl font-extrabold text-brand mb-1">Laisser un avis</h1>
-    <p class="text-sm text-brand/50 mb-8">
-        Trajet
-        <span class="font-semibold text-brand">{{ trip.departureCity }} → {{ trip.arrivalCity }}</span>
-        du {{ trip.departureAt|date('d/m/Y') }}
-    </p>
+    {{ form_start(reviewForm, {attr: {'data-review-form': '', novalidate: 'novalidate', class: 'mt-5'}}) }}
 
-    {# Carte de la personne notée #}
-    <div class="bg-cream border border-black/8 rounded-2xl px-5 py-4 mb-6 flex items-center gap-4">
-        {% if target.avatar %}
-            <img src="{{ target.avatar }}" alt="{{ target.firstName }}"
-                 class="w-12 h-12 rounded-full object-cover shrink-0">
-        {% else %}
-            <div class="w-12 h-12 rounded-full bg-brand/10 flex items-center justify-center shrink-0">
-                <span class="text-brand font-bold text-lg">{{ target.firstName|first|upper }}</span>
+    <div class="bg-white rounded-3xl shadow-card border border-black/5 overflow-hidden">
+
+        {# ══════════ EN-TETE : la personne notee ══════════ #}
+        <div class="bg-brand text-cream px-6 sm:px-8 pt-8 pb-7 text-center relative">
+            <div class="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/10 to-transparent pointer-events-none"></div>
+            <div class="relative inline-block">
+                {% if target.avatar %}
+                    <img src="{{ target.avatar }}" alt="" class="w-20 h-20 rounded-full object-cover ring-4 ring-cream/15">
+                {% else %}
+                    <span class="w-20 h-20 rounded-full bg-lime text-brand flex items-center justify-center text-3xl font-extrabold ring-4 ring-cream/15">{{ target.firstName|first|upper }}</span>
+                {% endif %}
+                <span class="absolute -bottom-1 -right-1 text-[10px] font-bold uppercase tracking-wide bg-cream text-brand px-2 py-0.5 rounded-full">
+                    {{ isDriver ? 'Conducteur' : 'Passager' }}
+                </span>
             </div>
-        {% endif %}
-        <div>
-            <p class="font-bold text-brand">{{ target.firstName }} {{ target.lastName|first }}.</p>
-            <p class="text-xs text-brand/50">
-                {{ type.value == 'driver' ? 'Conducteur' : 'Passager' }}
+            <h1 class="relative text-2xl sm:text-[1.7rem] font-extrabold tracking-tight mt-4 leading-tight">
+                Comment s'est passe votre trajet avec {{ target.firstName }} ?
+            </h1>
+            <p class="relative text-sm text-cream/60 mt-2 inline-flex items-center gap-2 flex-wrap justify-center">
+                <span class="font-semibold text-cream/85">{{ trip.departureCity }}</span>
+                <svg class="w-4 h-4 text-lime" fill="none" stroke="currentColor" stroke-width="2.6" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span class="font-semibold text-cream/85">{{ trip.arrivalCity }}</span>
+                <span aria-hidden="true">·</span>
+                <span>{{ trip.departureAt|date_fr('long') }}</span>
             </p>
+        </div>
+
+        <div class="px-6 sm:px-8 py-8 space-y-8">
+
+            {# ══════════ NOTE : 5 etoiles ══════════ #}
+            <fieldset class="text-center">
+                <legend class="sr-only">Votre note</legend>
+                <div class="flex justify-center gap-1.5 sm:gap-2" data-stars>
+                    {% for child in reviewForm.rating %}
+                        <label class="cursor-pointer" data-star="{{ child.vars.value }}" title="{{ child.vars.label }}">
+                            {{ form_widget(child, {attr: {class: 'peer sr-only'}}) }}
+                            <span class="sr-only">{{ child.vars.label }}</span>
+                            <svg class="w-11 h-11 sm:w-12 sm:h-12 transition duration-150 text-black/10 peer-focus-visible:ring-4 peer-focus-visible:ring-lime/40 rounded-full"
+                                 data-star-icon viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M12 2.8l2.75 5.57 6.15.9-4.45 4.33 1.05 6.12L12 16.83l-5.5 2.89 1.05-6.12L3.1 9.27l6.15-.9z"
+                                      stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+                            </svg>
+                        </label>
+                    {% endfor %}
+                </div>
+                <p data-star-text class="mt-3 text-sm font-semibold text-brand/40 h-5">Touchez une etoile pour noter</p>
+                <div class="form-error">{{ form_errors(reviewForm.rating) }}</div>
+            </fieldset>
+
+            {# ══════════ COMMENTAIRE + mots rapides ══════════ #}
+            <div>
+                <p class="text-sm font-bold text-brand">Qu'avez-vous apprecie ?</p>
+                <p class="text-xs text-brand/45 mt-0.5">Touchez pour ajouter a votre commentaire.</p>
+                <div class="flex flex-wrap gap-2 mt-3">
+                    {% for tag in tags %}
+                        <button type="button" data-tag="{{ tag }}" aria-pressed="false"
+                                class="inline-flex items-center gap-1.5 text-sm font-semibold px-3.5 py-2 rounded-full border border-black/10 text-brand bg-white hover:border-brand/30 transition
+                                       aria-pressed:bg-lime-soft aria-pressed:border-lime">
+                            <svg class="w-3.5 h-3.5 hidden" data-tag-check fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg>
+                            {{ tag }}
+                        </button>
+                    {% endfor %}
+                </div>
+
+                <div class="mt-5">
+                    <label for="{{ reviewForm.comment.vars.id }}" class="field-label">Votre commentaire <span class="font-normal text-brand/40">(optionnel)</span></label>
+                    {{ form_widget(reviewForm.comment, {attr: {
+                        class: 'field resize-none leading-relaxed',
+                        rows: 4,
+                        maxlength: 1000,
+                        placeholder: isDriver ? 'Ex : Tres ponctuel, conduite agreable, je recommande !' : 'Ex : Passager tres sympa et a l\'heure.',
+                        'data-comment': '',
+                    }}) }}
+                    <div class="flex justify-between mt-1.5">
+                        <div class="form-error">{{ form_errors(reviewForm.comment) }}</div>
+                        <span data-counter class="text-[11px] text-brand/35 tabular-nums">0 / 1000</span>
+                    </div>
+                </div>
+            </div>
+
+            {# ══════════ ENVOI ══════════ #}
+            <div>
+                {# desactive par le JavaScript tant qu'aucune etoile n'est choisie #}
+                <button type="submit" data-review-submit
+                        class="w-full inline-flex items-center justify-center gap-2 bg-lime hover:bg-lime-hover text-brand font-bold py-4 rounded-2xl text-sm transition
+                               disabled:bg-black/5 disabled:text-brand/30 disabled:cursor-not-allowed">
+                    Publier mon avis
+                </button>
+                <p class="flex items-center justify-center gap-1.5 text-xs text-brand/40 mt-3 text-center">
+                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8h0M12 11v5" stroke-linecap="round"/></svg>
+                    Votre avis sera visible sur le profil de {{ target.firstName }} et ne pourra plus etre modifie.
+                </p>
+            </div>
         </div>
     </div>
 
-    {# Formulaire #}
-    {{ form_start(reviewForm, {attr: {class: 'space-y-6'}}) }}
-
-        {# Note — étoiles custom #}
-        <div>
-            <p class="text-sm font-semibold text-brand mb-3">Votre note</p>
-            <div class="flex flex-col gap-2">
-                {% for child in reviewForm.rating %}
-                <label class="flex items-center gap-3 cursor-pointer group">
-                    {{ form_widget(child, {attr: {class: 'accent-lime w-4 h-4 cursor-pointer'}}) }}
-                    <span class="text-sm text-brand group-hover:font-semibold transition">
-                        {{ child.vars.label }}
-                    </span>
-                </label>
-                {% endfor %}
-            </div>
-            {{ form_errors(reviewForm.rating) }}
-        </div>
-
-        {# Commentaire #}
-        <div>
-            {{ form_label(reviewForm.comment, null, {label_attr: {class: 'block text-sm font-semibold text-brand mb-2'}}) }}
-            {{ form_widget(reviewForm.comment, {attr: {
-                class: 'w-full border border-black/10 rounded-xl px-4 py-3 text-sm text-brand bg-white placeholder-brand/30 focus:outline-none focus:ring-2 focus:ring-lime/50 resize-none'
-            }}) }}
-            {{ form_errors(reviewForm.comment) }}
-        </div>
-
-        <button type="submit"
-                class="w-full bg-lime hover:bg-lime/90 text-brand font-bold py-3 rounded-xl text-sm transition">
-            Publier mon avis
-        </button>
-
     {{ form_end(reviewForm) }}
-
 </div>
+
+<script>
+/* Etoiles, mots rapides et compteur de caracteres de la page "Laisser un avis". */
+(() => {
+    const form    = document.querySelector('[data-review-form]');
+    const stars   = [...form.querySelectorAll('[data-star]')];
+    const text    = form.querySelector('[data-star-text]');
+    const submit  = form.querySelector('[data-review-submit]');
+    const comment = form.querySelector('[data-comment]');
+    const counter = form.querySelector('[data-counter]');
+
+    const LABELS = { 1: 'Decevant', 2: 'Passable', 3: 'Bien', 4: 'Tres bien', 5: 'Excellent !' };
+    const COLORS = { 1: 'text-red-500', 2: 'text-orange-500', 3: 'text-brand', 4: 'text-brand', 5: 'text-lime' };
+
+    const current = () => { const r = form.querySelector('[data-star] input:checked'); return r ? +r.value : 0; };
+
+    // Colore les etoiles jusqu'a "n" (survol ou note choisie)
+    const paint = (n, preview = false) => {
+        stars.forEach((s) => {
+            const on = +s.dataset.star <= n;
+            const icon = s.querySelector('[data-star-icon]');
+            icon.classList.toggle('text-lime', on);
+            icon.classList.toggle('text-black/10', !on);
+        });
+        text.className = 'mt-3 text-sm font-semibold h-5 transition ' + (n ? COLORS[n] : 'text-brand/40');
+        text.textContent = n ? LABELS[n] : 'Touchez une etoile pour noter';
+        if (!preview) submit.disabled = n === 0;
+    };
+
+    stars.forEach((s) => {
+        s.addEventListener('mouseenter', () => paint(+s.dataset.star, true));
+        s.addEventListener('click', () => {
+            // petit rebond sur l'etoile choisie
+            s.querySelector('[data-star-icon]').animate([{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }], { duration: 260, easing: 'ease-out' });
+        });
+    });
+    form.querySelector('[data-stars]').addEventListener('mouseleave', () => paint(current(), true));
+    form.querySelectorAll('[data-star] input').forEach((r) => r.addEventListener('change', () => paint(current())));
+
+    // Mots rapides : ajoute / retire la phrase du commentaire
+    const countChars = () => { counter.textContent = comment.value.length + ' / 1000'; };
+    const syncTags = () => form.querySelectorAll('[data-tag]').forEach((b) => {
+        const on = comment.value.toLowerCase().includes(b.dataset.tag.toLowerCase());
+        b.setAttribute('aria-pressed', String(on));
+        b.querySelector('[data-tag-check]').classList.toggle('hidden', !on);
+    });
+    form.querySelectorAll('[data-tag]').forEach((b) => b.addEventListener('click', () => {
+        const tag = b.dataset.tag;
+        const parts = comment.value.split(/\s*,\s*|\s*\.\s*$/).map((p) => p.trim()).filter(Boolean);
+        const i = parts.findIndex((p) => p.toLowerCase() === tag.toLowerCase());
+        if (i >= 0) parts.splice(i, 1); else parts.push(parts.length ? tag.toLowerCase() : tag);
+        comment.value = parts.join(', ');
+        countChars(); syncTags();
+    }));
+    comment.addEventListener('input', () => { countChars(); syncTags(); });
+
+    form.addEventListener('submit', (e) => {
+        if (!current()) { e.preventDefault(); paint(0); return; }
+        submit.disabled = true;
+        submit.textContent = 'Publication...';
+    });
+
+    paint(current());
+    countChars(); syncTags();
+})();
+</script>
 {% endblock %}

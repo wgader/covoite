@@ -2,6 +2,7 @@
 
 namespace App\Form;
 
+use App\Validator\TextRules;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
@@ -23,6 +24,8 @@ class BookingFormType extends AbstractType
             ->add('seats', ChoiceType::class, [
                 'label'   => false,
                 'choices' => $seatsChoices,
+                // Un nombre de places hors de la liste (ex : 99 envoye a la main) est refuse
+                'invalid_message' => 'Nombre de places invalide.',
             ])
             ->add('message', TextareaType::class, [
                 'label'    => false,
@@ -30,7 +33,9 @@ class BookingFormType extends AbstractType
                 'attr'     => [
                     'placeholder' => 'Un mot pour le conducteur ? (optionnel)',
                     'rows'        => 3,
+                    'maxlength'   => 500,
                 ],
+                'constraints' => TextRules::text('le message', max: 500),
             ])
         ;
     }

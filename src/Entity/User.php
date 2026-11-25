@@ -9,10 +9,14 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use App\Enum\MusicGenre;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\UniqueConstraint(name: 'UNIQ_IDENTIFIER_EMAIL', fields: ['email'])]
+// Verifie AVANT l'enregistrement qu'aucun compte n'utilise deja cet e-mail
+// (sinon MySQL refuserait l'insertion et l'utilisateur verrait une erreur 500)
+#[UniqueEntity(fields: ['email'], message: 'Un compte existe deja avec cette adresse e-mail. Connectez-vous ou utilisez une autre adresse.')]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
@@ -186,7 +190,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function setEmail(string $email): static
     {
-        $this->email = $email;
+        // " Jean@Mail.FR " et "jean@mail.fr" = le meme compte
+        $this->email = mb_strtolower(trim($email));
 
         return $this;
     }

@@ -3,6 +3,7 @@
 namespace App\Form;
 
 use App\Entity\User;
+use App\Validator\TextRules;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\BirthdayType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
@@ -18,6 +19,8 @@ use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\Email;
 use Symfony\Component\Validator\Constraints\Regex;
+use Symfony\Component\Validator\Constraints\GreaterThan;
+use Symfony\Component\Validator\Constraints\LessThanOrEqual;
 
 class RegistrationFormType extends AbstractType
 {
@@ -26,28 +29,29 @@ class RegistrationFormType extends AbstractType
         $builder
             ->add('firstName', TextType::class, [
                 'label' => false,
-                'constraints' => [
-                    new NotBlank(message: 'Merci de renseigner votre prénom.'),
-                    new Length(max: 255),
-                ],
+                'constraints' => TextRules::name('le prenom'),
             ])
             ->add('lastName', TextType::class, [
                 'label' => false,
-                'constraints' => [
-                    new NotBlank(message: 'Merci de renseigner votre nom.'),
-                    new Length(max: 255),
-                ],
+                'constraints' => TextRules::name('le nom'),
             ])
             ->add('email', EmailType::class, [
                 'label' => false,
                 'constraints' => [
                     new NotBlank(message: 'Merci de renseigner votre adresse e-mail.'),
                     new Email(message: 'Cette adresse e-mail n\'est pas valide.'),
+                    new Length(max: 180, maxMessage: 'Adresse e-mail trop longue.'),
                 ],
             ])
             ->add('dateOfBirth', BirthdayType::class, [
                 'label' => false,
                 'widget' => 'single_text',
+                'invalid_message' => 'Date de naissance invalide.',
+                'constraints' => [
+                    new NotBlank(message: 'Indiquez votre date de naissance.'),
+                    new LessThanOrEqual(value: '-18 years', message: 'Vous devez avoir au moins 18 ans pour vous inscrire.'),
+                    new GreaterThan(value: '-100 years', message: 'Date de naissance invalide.'),
+                ],
             ])
             ->add('phone', TelType::class, [
                 'label'    => false,
@@ -55,7 +59,7 @@ class RegistrationFormType extends AbstractType
                 'mapped'   => false, // à câbler sur l'entité User si tu veux le sauvegarder
                 'constraints' => [
                     new Regex(
-                        pattern: '/^(\+33|0033|0)[1-9](\d{2}){4}$/',
+                        pattern: '/^(\+33|0033|0)\s?[1-9](?:[\s.-]?\d{2}){4}$/', // espaces, points ou tirets acceptes
                         message: 'Numéro de téléphone français invalide (ex : 06 12 34 56 78).',
                     ),
                 ],

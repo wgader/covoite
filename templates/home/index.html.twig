@@ -5,7 +5,9 @@
 {% block body %}
 
 {# ══════════════════════════ HERO ══════════════════════════ #}
-<section class="relative overflow-hidden">
+{# overflow-x-clip (et pas overflow-hidden) : on coupe les formes decoratives qui depassent
+   sur les cotes, mais PAS les listes de suggestions / le calendrier qui descendent sous la section #}
+<section class="relative overflow-x-clip">
     {# Formes decoratives douces en fond #}
     <div class="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-lime/10 blur-2xl pointer-events-none"></div>
     <div class="absolute top-40 -right-32 w-96 h-96 rounded-full bg-lime/10 blur-3xl pointer-events-none"></div>

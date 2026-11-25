@@ -34,15 +34,20 @@ final class ReviewController extends AbstractController
             throw $this->createAccessDeniedException('Acces refuse.');
         }
 
+        // Retour vers la page du trajet dans "Mes trajets" (vue passager ou vue conducteur)
+        $backUrl = $isPassenger
+            ? $this->generateUrl('app_ride_passenger', ['id' => $booking->getId()])
+            : $this->generateUrl('app_ride_driver', ['id' => $trip->getId()]);
+
         if ($booking->getStatus() !== BookingStatus::Completed) {
             $this->addFlash('error', 'Vous ne pouvez laisser un avis que sur un trajet termine.');
-            return $this->redirectToRoute('app_account');
+            return $this->redirect($backUrl);
         }
 
         $existing = $reviewRepo->findOneBy(['booking' => $booking, 'author' => $user]);
         if ($existing) {
             $this->addFlash('error', 'Vous avez deja laisse un avis pour ce trajet.');
-            return $this->redirectToRoute('app_account');
+            return $this->redirect($backUrl);
         }
 
         if ($isPassenger) {
@@ -71,7 +76,7 @@ final class ReviewController extends AbstractController
             $em->flush();
 
             $this->addFlash('success', 'Votre avis a bien ete enregistre. Merci !');
-            return $this->redirectToRoute('app_account');
+            return $this->redirect($backUrl);
         }
 
         return $this->render('review/create.html.twig', [
@@ -80,6 +85,7 @@ final class ReviewController extends AbstractController
             'target'     => $target,
             'type'       => $type,
             'reviewForm' => $form,
+            'backUrl'    => $backUrl,
         ]);
     }
 }

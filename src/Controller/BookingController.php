@@ -8,6 +8,8 @@ use App\Enum\BookingStatus;
 use App\Enum\CancelledBy;
 use App\Enum\TripStatus;
 use App\Form\BookingFormType;
+use App\Validator\TextRules;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -60,7 +62,15 @@ final class BookingController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $seats  = $form->get('seats')->getData();
+            $seats  = (int) $form->get('seats')->getData();
+
+            // Le trajet a pu se remplir pendant que la page etait ouverte
+            $em->refresh($trip);
+            if ($seats > $trip->getAvailableSeats() || $trip->getStatus() !== TripStatus::Active) {
+                $this->addFlash('error', 'Il ne reste plus assez de places sur ce trajet.');
+
+                return $back;
+            }
             $amount = round((float) $trip->getPrice() * $seats, 2);
             $fee    = round($amount * 0.10, 2);
 
@@ -79,6 +89,7 @@ final class BookingController extends AbstractController
             $em->flush();
 
             $this->addFlash('success', 'Demande envoyee. Le conducteur va vous repondre.');
+
 
             return $this->redirectToRoute('app_ride_passenger', ['id' => $booking->getId()]);
         }
@@ -123,12 +134,17 @@ final class BookingController extends AbstractController
             return $back;
         }
 
+        $reason = $this->reason($request);
+        if ($reason === false) {
+            return $back;
+        }
+
         $this->releaseSeats($booking);
 
         $booking->setStatus(BookingStatus::Cancelled);
         $booking->setCancelledBy(CancelledBy::Passenger);
         $booking->setCancelledAt(new \DateTimeImmutable());
-        $booking->setCancelledReason($request->request->getString('reason') ?: null);
+        $booking->setCancelledReason($reason);
 
         $em->flush();
 
@@ -162,20 +178,31 @@ final class BookingController extends AbstractController
             return $back;
         }
 
-        if ($booking->getSeats() > $trip->getAvailableSeats()) {
+        // Transaction + verrou sur le trajet : si deux demandes sont acceptees au meme moment
+        // (deux onglets, double clic), la 2e attend la 1re et relit le VRAI nombre de places.
+        // Sans ca, on pourrait accepter plus de passagers qu'il n'y a de places.
+        $accepted = $em->wrapInTransaction(function () use ($em, $trip, $booking): bool {
+            $em->refresh($trip, LockMode::PESSIMISTIC_WRITE);
+            $em->refresh($booking);
+
+            if ($booking->getStatus() !== BookingStatus::Pending || $booking->getSeats() > $trip->getAvailableSeats()) {
+                return false;
+            }
+
+            $booking->setStatus(BookingStatus::Confirmed);
+            $trip->setAvailableSeats($trip->getAvailableSeats() - $booking->getSeats());
+            if ($trip->getAvailableSeats() === 0) {
+                $trip->setStatus(TripStatus::Full);
+            }
+
+            return true; // wrapInTransaction() fait le flush et le commit
+        });
+
+        if (!$accepted) {
             $this->addFlash('error', 'Il ne reste pas assez de places pour accepter cette demande.');
 
             return $back;
         }
-
-        $booking->setStatus(BookingStatus::Confirmed);
-        $trip->setAvailableSeats($trip->getAvailableSeats() - $booking->getSeats());
-
-        if ($trip->getAvailableSeats() === 0) {
-            $trip->setStatus(TripStatus::Full);
-        }
-
-        $em->flush();
 
         $this->addFlash('success', $booking->getPassenger()->getFirstName() . ' fait maintenant partie du trajet.');
 
@@ -243,18 +270,40 @@ final class BookingController extends AbstractController
             return $back;
         }
 
+        $reason = $this->reason($request);
+        if ($reason === false) {
+            return $back;
+        }
+
         $this->releaseSeats($booking);
 
         $booking->setStatus(BookingStatus::Cancelled);
         $booking->setCancelledBy(CancelledBy::Driver);
         $booking->setCancelledAt(new \DateTimeImmutable());
-        $booking->setCancelledReason($request->request->getString('reason') ?: null);
+        $booking->setCancelledReason($reason);
 
         $em->flush();
 
         $this->addFlash('success', $booking->getPassenger()->getFirstName() . ' a ete retire du trajet. Ses places sont de nouveau disponibles.');
 
         return $back;
+    }
+
+    /** Motif d'annulation (optionnel). false = texte refuse (un message d'erreur est deja affiche). */
+    private function reason(Request $request): string|false|null
+    {
+        $reason = trim($request->request->getString('reason'));
+        if ($reason === '') {
+            return null;
+        }
+        $error = TextRules::check($reason, 255);
+        if ($error !== null) {
+            $this->addFlash('error', 'Motif : ' . $error);
+
+            return false;
+        }
+
+        return $reason;
     }
 
     /** Rend les places d'une reservation confirmee et rouvre le trajet s'il etait complet. */

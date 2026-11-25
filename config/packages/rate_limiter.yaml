@@ -1,0 +1,29 @@
+# Limites anti-abus (composant symfony/rate-limiter).
+# Chaque limite devient un service "limiter.<nom>" injecte dans les controleurs.
+#   sliding_window : X actions sur une periode glissante
+#   fixed_window   : X actions par tranche de temps fixe
+framework:
+    rate_limiter:
+        # Creation de comptes : 5 par heure et par adresse IP (RegistrationController)
+        registration:
+            policy: sliding_window
+            limit: 5
+            interval: '1 hour'
+
+        # Messages : 20 par minute et par utilisateur (MessageController)
+        messages:
+            policy: sliding_window
+            limit: 20
+            interval: '1 minute'
+
+        # Autocompletion des lieux : 60 recherches par minute et par IP (PlaceController)
+        places:
+            policy: sliding_window
+            limit: 60
+            interval: '1 minute'
+
+        # Actions sensibles (changement de mot de passe) : 5 essais par quart d'heure
+        sensitive:
+            policy: fixed_window
+            limit: 5
+            interval: '15 minutes'

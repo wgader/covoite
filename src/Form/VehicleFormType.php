@@ -4,6 +4,7 @@ namespace App\Form;
 
 use App\Entity\Vehicle;
 use App\Enum\LuggageSize;
+use App\Validator\TextRules;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
@@ -25,24 +26,21 @@ class VehicleFormType extends AbstractType
             ->add('brand', TextType::class, [
                 'label'       => 'Marque',
                 'constraints' => [
-                    new NotBlank(message: 'Indiquez la marque.'),
-                    new Length(max: 100),
+                    ...TextRules::line('la marque', max: 100),
                 ],
                 'attr' => ['placeholder' => 'Peugeot, Renault...'],
             ])
             ->add('model', TextType::class, [
                 'label'       => 'Modele',
                 'constraints' => [
-                    new NotBlank(message: 'Indiquez le modele.'),
-                    new Length(max: 100),
+                    ...TextRules::line('le modele', max: 100),
                 ],
                 'attr' => ['placeholder' => '208, Clio...'],
             ])
             ->add('color', TextType::class, [
                 'label'       => 'Couleur',
                 'constraints' => [
-                    new NotBlank(message: 'Indiquez la couleur.'),
-                    new Length(max: 50),
+                    ...TextRules::line('la couleur', min: 2, max: 50),
                 ],
                 'attr' => ['placeholder' => 'Gris, Blanc...'],
             ])
@@ -50,8 +48,9 @@ class VehicleFormType extends AbstractType
                 'label'       => 'Places (conducteur inclus)',
                 'constraints' => [
                     new NotBlank(message: 'Indiquez le nombre de places.'),
-                    new Range(min: 2, max: 9),
+                    new Range(min: 2, max: 9, notInRangeMessage: 'Entre {{ min }} et {{ max }} places, conducteur inclus.'),
                 ],
+                'invalid_message' => 'Le nombre de places doit etre un nombre entier.',
                 'attr' => ['min' => 2, 'max' => 9],
             ])
             ->add('trunkSize', EnumType::class, [

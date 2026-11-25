@@ -53,6 +53,14 @@
         .leaflet-bar a { color: #0F2D24; }
     </style>
     {% block stylesheets %}{% endblock %}
+    {# Autocompletion des lieux (window.Places, voir assets/places.js). Script classique, donc
+       disponible tout de suite pour les scripts des pages (barre de recherche, assistant...). #}
+    <script src="{{ asset('places.js') }}"
+            data-search-url="{{ path('api_places') }}"
+            data-reverse-url="{{ path('api_places_reverse') }}"
+            data-position-url="{{ path('api_places_position') }}"></script>
+    {# Calendrier maison (window.DatePicker, voir assets/datepicker.js) #}
+    <script src="{{ asset('datepicker.js') }}"></script>
     {# JavaScript gere par AssetMapper (Stimulus + Symfony UX Map). Les modules sont charges en differe. #}
     {% block importmap %}{{ importmap('app') }}{% endblock %}
 </head>
@@ -165,6 +173,10 @@
                         <a href="{{ path('app_vehicle_index') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-brand rounded-xl hover:bg-cream transition">
                             <svg class="w-4 h-4 text-brand/50" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 17h14M5 17a2 2 0 1 0 4 0M15 17a2 2 0 1 0 4 0M3 17v-4l2-5a2 2 0 0 1 1.9-1.4h10.2A2 2 0 0 1 19 8l2 5v4"/></svg>
                             Mes vehicules
+                        </a>
+                        <a href="{{ path('app_password') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-brand rounded-xl hover:bg-cream transition">
+                            <svg class="w-4 h-4 text-brand/50" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+                            Mot de passe
                         </a>
 
                         {% if is_granted('ROLE_ADMIN') %}
@@ -404,74 +416,45 @@
 </script>
 
 <script>
-/* ── Autocompletion des villes (barres de recherche) ─────────────────────
-   Tout champ <input data-city-input> place dans un <div data-city> avec un
-   <ul data-city-list> propose les communes de France pendant la frappe.
-   Source : API de geocodage de l'IGN (Geoplateforme), gratuite et sans cle. */
+/* ── Barres de recherche : autocompletion depart / arrivee ───────────────
+   Chaque bloc [data-place] contient le champ visible (data-place-input), la liste
+   (data-place-list) et 3 champs caches remplis au choix d'un lieu : sa ville, sa
+   latitude et sa longitude. Les trajets sont cherches par VILLE : taper
+   "Leclerc Corgnac" trouve donc les trajets qui partent de Limoges.
+   Le moteur (appel a /api/lieux, tri par proximite, affichage) est dans assets/places.js. */
 (() => {
-    const strip = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    document.querySelectorAll('[data-place]').forEach((box) => {
+        const input = box.querySelector('[data-place-input]');
+        const city  = box.querySelector('[data-place-city]');
+        const lat   = box.querySelector('[data-place-lat]');
+        const lng   = box.querySelector('[data-place-lng]');
 
-    document.querySelectorAll('[data-city]').forEach((box) => {
-        const input = box.querySelector('[data-city-input]');
-        const list  = box.querySelector('[data-city-list]');
-        let timer = null, items = [], active = -1, ctrl = null;
-
-        const render = () => {
-            list.innerHTML = '';
-            items.forEach((p, i) => {
-                const li = document.createElement('li');
-                li.innerHTML =
-                    '<button type="button" class="w-full text-left flex items-center gap-3 px-4 py-2.5 ' + (i === active ? 'bg-cream' : 'hover:bg-cream') + '">' +
-                    '<svg class="w-4 h-4 text-brand/40 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>' +
-                    '<span class="min-w-0"><span class="block text-sm font-semibold text-brand truncate"></span><span class="block text-xs text-brand/50 truncate"></span></span></button>';
-                const s = li.querySelectorAll('span span');
-                s[0].textContent = p.city;
-                s[1].textContent = [p.postcode, p.context].filter(Boolean).join(' · ');
-                li.firstChild.addEventListener('mousedown', (e) => { e.preventDefault(); pick(p); });
-                list.appendChild(li);
-            });
-            list.hidden = items.length === 0;
-        };
-        const pick = (p) => { input.value = p.city; items = []; list.hidden = true; };
-
-        input.addEventListener('input', () => {
-            clearTimeout(timer);
-            const q = input.value.trim();
-            if (q.length < 2) { items = []; render(); return; }
-            timer = setTimeout(async () => {
-                if (ctrl) ctrl.abort();
-                ctrl = new AbortController();
-                try {
-                    const r = await fetch('https://data.geopf.fr/geocodage/search?type=municipality&autocomplete=1&limit=6&q=' + encodeURIComponent(q), { signal: ctrl.signal });
-                    const data = await r.json();
-                    const seen = new Set();
-                    items = (data.features || []).map((f) => ({
-                        city: f.properties.city || f.properties.name,
-                        postcode: f.properties.postcode,
-                        context: (f.properties.context || '').split(',').slice(1, 2).join('').trim(),
-                    })).filter((p) => { const k = strip(p.city); if (seen.has(k)) return false; seen.add(k); return true; });
-                    active = -1;
-                    render();
-                } catch (e) { /* API indisponible : la saisie libre fonctionne quand meme */ }
-            }, 200);
+        Places.attach(input, box.querySelector('[data-place-list]'), {
+            mode: box.dataset.place || 'tout',
+            onPick: (p) => { city.value = p.city; lat.value = p.lat; lng.value = p.lng; },
+            onType: () => { city.value = ''; lat.value = ''; lng.value = ''; }, // le texte a change : l'ancien choix ne compte plus
         });
-        input.addEventListener('keydown', (e) => {
-            if (list.hidden) return;
-            if (e.key === 'ArrowDown') { e.preventDefault(); active = (active + 1) % items.length; render(); }
-            if (e.key === 'ArrowUp')   { e.preventDefault(); active = (active - 1 + items.length) % items.length; render(); }
-            if (e.key === 'Enter' && active >= 0) { e.preventDefault(); pick(items[active]); }
-            if (e.key === 'Escape') list.hidden = true;
-        });
-        input.addEventListener('blur', () => setTimeout(() => { list.hidden = true; }, 120));
     });
 
-    // Bouton "inverser depart / arrivee"
-    document.querySelectorAll('[data-search-form] [data-swap]').forEach((btn) => btn.addEventListener('click', () => {
-        const form = btn.closest('form');
-        const a = form.querySelector('[name="from"]'), b = form.querySelector('[name="to"]');
-        [a.value, b.value] = [b.value, a.value];
-        btn.animate([{ transform: 'rotate(0)' }, { transform: 'rotate(180deg)' }], { duration: 250 });
-    }));
+    // Champ "Date" : calendrier maison dans une bulle (assets/datepicker.js)
+    document.querySelectorAll('[data-datepicker]').forEach((box) => DatePicker.popover(box, { allowClear: true }));
+
+    document.querySelectorAll('[data-search-form]').forEach((form) => {
+        // Bouton "inverser depart / arrivee" : on echange le texte ET les champs caches
+        const swap = form.querySelector('[data-swap]');
+        if (swap) swap.addEventListener('click', () => {
+            const [a, b] = [...form.querySelectorAll('[data-place]')].map((box) => [...box.querySelectorAll('input')]);
+            a.forEach((input, i) => { [input.value, b[i].value] = [b[i].value, input.value]; });
+            swap.animate([{ transform: 'rotate(0)' }, { transform: 'rotate(180deg)' }], { duration: 250 });
+        });
+
+        // Champs caches vides = pas envoyes (URL plus propre : pas de "&fromCity=&fromLat=")
+        form.addEventListener('submit', () => {
+            form.querySelectorAll('input[type="hidden"]').forEach((h) => { h.disabled = h.value === ''; });
+        });
+        // Retour arriere du navigateur : on reactive les champs desactives a l'envoi
+        window.addEventListener('pageshow', () => form.querySelectorAll('input[type="hidden"]').forEach((h) => { h.disabled = false; }));
+    });
 })();
 </script>
 

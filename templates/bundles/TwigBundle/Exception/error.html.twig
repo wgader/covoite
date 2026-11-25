@@ -1,0 +1,35 @@
+{#
+    Toutes les autres erreurs (500...). Volontairement SANS base.html.twig : si l'erreur vient de la
+    base de donnees, la barre de navigation (qui compte les messages non lus) planterait a son tour.
+#}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Oups — Covoite</title>
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <script>
+        tailwind.config = { theme: { extend: {
+            colors: { brand: '#0F2D24', cream: '#F5F5F0', lime: { DEFAULT: '#8DC63F', hover: '#7ab535', soft: '#EEF6E2' } },
+            boxShadow: { card: '0 1px 2px rgba(15,45,36,.04), 0 8px 24px -12px rgba(15,45,36,.12)' },
+            fontFamily: { sans: ['Sora', 'sans-serif'] },
+        } } };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="font-sans bg-cream min-h-screen">
+    <div class="max-w-6xl mx-auto px-6 py-6">
+        <a href="/" class="text-2xl font-extrabold text-brand tracking-tight">Covoite<span class="text-lime">.</span></a>
+    </div>
+    {% include '@Twig/Exception/_error_card.html.twig' with {
+        code: status_code,
+        icon: 'alert',
+        title: status_code == 429 ? 'Doucement !' : 'Un probleme est survenu',
+        text: status_code == 429
+            ? 'Vous avez fait trop d\'actions en peu de temps. Patientez un instant puis reessayez.'
+            : 'Une erreur inattendue s\'est produite de notre cote. Reessayez dans quelques instants.',
+    } %}
+</body>
+</html>

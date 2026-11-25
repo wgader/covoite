@@ -1,0 +1,27 @@
+{#
+    Carte commune des pages d'erreur. Variables : code, title, text, icon ('lock' | 'map' | 'alert')
+    Les pages d'erreur ne s'affichent qu'en production (APP_ENV=prod). En dev, pour les voir :
+    https://localhost/_error/404  (ou 403, 500...)
+#}
+<div class="min-h-[70vh] flex items-center justify-center px-4 py-16">
+    <div class="max-w-md w-full text-center">
+        <div class="relative inline-flex">
+            <span class="w-24 h-24 rounded-[2rem] bg-white shadow-card border border-black/5 flex items-center justify-center text-brand">
+                {% if icon == 'lock' %}
+                    <svg class="w-11 h-11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4M12 15v2"/></svg>
+                {% elseif icon == 'map' %}
+                    <svg class="w-11 h-11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m9 4-6 2v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>
+                {% else %}
+                    <svg class="w-11 h-11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h0"/></svg>
+                {% endif %}
+            </span>
+            <span class="absolute -top-2 -right-3 bg-lime text-brand text-xs font-extrabold px-2.5 py-1 rounded-full shadow-card">{{ code }}</span>
+        </div>
+        <h1 class="text-3xl font-extrabold text-brand tracking-tight mt-7">{{ title }}</h1>
+        <p class="text-brand/55 mt-3 leading-relaxed">{{ text }}</p>
+        <div class="mt-8 flex flex-wrap justify-center gap-3">
+            <a href="/" class="bg-lime hover:bg-lime-hover text-brand font-bold text-sm px-6 py-3 rounded-full transition">Retour a l'accueil</a>
+            <a href="javascript:history.back()" class="bg-white border border-black/10 hover:border-brand/30 text-brand font-semibold text-sm px-6 py-3 rounded-full transition">Page precedente</a>
+        </div>
+    </div>
+</div>

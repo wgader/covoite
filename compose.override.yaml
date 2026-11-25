@@ -40,6 +40,7 @@ services:
 ###< doctrine/doctrine-bundle ###
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
+    platform: linux/amd64
     environment:
       PMA_HOST: database
       PMA_PORT: 3306

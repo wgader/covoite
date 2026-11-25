@@ -9,10 +9,13 @@ use App\Entity\Trip;
 use App\Entity\User;
 use App\Enum\ConversationType;
 use App\Repository\MessageRepository;
+use App\Validator\TextRules;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[Route('/messages')]
@@ -39,6 +42,9 @@ final class MessageController extends AbstractController
         Request $request,
         EntityManagerInterface $em,
         MessageRepository $repo,
+        // 20 messages par minute maximum et par utilisateur (anti-spam), voir config/packages/rate_limiter.yaml
+        #[Autowire(service: 'limiter.messages')]
+        RateLimiterFactoryInterface $messagesLimiter,
     ): Response {
         $this->denyAccessUnlessGranted('ROLE_USER');
 
@@ -48,38 +54,15 @@ final class MessageController extends AbstractController
         if ($partner->getId() === $me->getId()) {
             return $this->redirectToRoute('app_messages');
         }
+        // Compte supprime ou suspendu : on ne peut plus lui ecrire
+        if ($partner->getDeletedAt() !== null || $partner->getSuspendedAt() !== null) {
+            $this->addFlash('error', 'Ce membre n\'est plus disponible.');
 
-        // Trouver la conversation entre nous deux, ou la creer
+            return $this->redirectToRoute('app_messages');
+        }
+
+        // La conversation n'est creee qu'au PREMIER message envoye (pas en ouvrant la page)
         $conversation = $repo->findConversationBetween($me, $partner);
-
-        if (!$conversation) {
-            $now          = new \DateTimeImmutable();
-            $conversation = new Conversation();
-            $conversation->setType(ConversationType::Direct);
-            $conversation->setCreatedAt($now);
-
-            foreach ([$me, $partner] as $user) {
-                $cp = new ConversationParticipant();
-                $cp->setUser($user);
-                $cp->setConversation($conversation);
-                $cp->setJoinedAt($now);
-                $conversation->addParticipant($cp);
-                $em->persist($cp);
-            }
-
-            $em->persist($conversation);
-            $em->flush();
-        }
-
-        $myCp      = null;
-        $partnerCp = null;
-        foreach ($conversation->getParticipants() as $cp) {
-            if ($cp->getUser()->getId() === $me->getId()) {
-                $myCp = $cp;
-            } else {
-                $partnerCp = $cp;
-            }
-        }
 
         // ── Envoi d'un message ──
         if ($request->isMethod('POST')) {
@@ -91,24 +74,29 @@ final class MessageController extends AbstractController
 
                 return $back;
             }
-
             if ($content === '') {
-                return $back;
-            }
-
-            if (mb_strlen($content) > self::MAX_LENGTH) {
-                $this->addFlash('error', 'Message trop long (' . self::MAX_LENGTH . ' caracteres maximum).');
+                $this->addFlash('error', 'Le message est vide.');
 
                 return $back;
             }
+            $error = TextRules::check($content, self::MAX_LENGTH);
+            if ($error !== null) {
+                $this->addFlash('error', $error);
 
-            // Si on ecrit depuis un trajet, on rattache ce trajet a la conversation
-            $tripId = $request->request->getInt('trip_id');
-            if ($tripId > 0 && $conversation->getTrip() === null) {
-                $trip = $em->find(Trip::class, $tripId);
-                if ($trip) {
-                    $conversation->setTrip($trip);
-                }
+                return $back;
+            }
+            if (!$messagesLimiter->create('user-' . $me->getId())->consume()->isAccepted()) {
+                $this->addFlash('error', 'Vous envoyez trop de messages. Patientez une minute.');
+
+                return $back;
+            }
+
+            $conversation ??= $this->createConversation($em, $me, $partner);
+
+            // Si on ecrit depuis un trajet, on le rattache... seulement si c'est le trajet de l'un de nous deux
+            $trip = $this->sharedTrip($em, $request->request->getInt('trip_id'), $me, $partner);
+            if ($trip !== null && $conversation->getTrip() === null) {
+                $conversation->setTrip($trip);
             }
 
             $msg = new Message();
@@ -118,33 +106,76 @@ final class MessageController extends AbstractController
             $msg->setSentAt(new \DateTimeImmutable());
             $em->persist($msg);
 
-            $myCp?->setLastReadAt(new \DateTimeImmutable());
+            $this->participant($conversation, $me)?->setLastReadAt(new \DateTimeImmutable());
             $em->flush();
 
             return $back;
         }
 
         // ── Affichage : j'ouvre la conversation = je l'ai lue ──
+        $myCp = $conversation !== null ? $this->participant($conversation, $me) : null;
         if ($myCp) {
             $myCp->setLastReadAt(new \DateTimeImmutable());
             $em->flush();
         }
 
         // Contexte trajet : celui de la conversation, sinon celui passe dans l'URL (?trip=9)
-        $trip = $conversation->getTrip();
-        if ($trip === null && $request->query->getInt('trip') > 0) {
-            $trip = $em->find(Trip::class, $request->query->getInt('trip'));
-        }
+        $trip = $conversation?->getTrip() ?? $this->sharedTrip($em, $request->query->getInt('trip'), $me, $partner);
 
         return $this->render('message/thread.html.twig', [
             'conversations'   => $repo->findConversationsFor($me),
             'activePartnerId' => $partner->getId(),
             'partner'         => $partner,
-            'thread'          => $repo->findMessagesInConversation($conversation),
+            'thread'          => $conversation !== null ? $repo->findMessagesInConversation($conversation) : [],
             'trip'            => $trip,
-            'partnerLastRead' => $partnerCp?->getLastReadAt(),
+            'partnerLastRead' => $conversation !== null ? $this->participant($conversation, $partner)?->getLastReadAt() : null,
             'maxLength'       => self::MAX_LENGTH,
         ]);
+    }
+
+    private function createConversation(EntityManagerInterface $em, User $me, User $partner): Conversation
+    {
+        $now          = new \DateTimeImmutable();
+        $conversation = new Conversation();
+        $conversation->setType(ConversationType::Direct);
+        $conversation->setCreatedAt($now);
+
+        foreach ([$me, $partner] as $user) {
+            $cp = new ConversationParticipant();
+            $cp->setUser($user);
+            $cp->setConversation($conversation);
+            $cp->setJoinedAt($now);
+            $conversation->addParticipant($cp);
+            $em->persist($cp);
+        }
+        $em->persist($conversation);
+
+        return $conversation;
+    }
+
+    private function participant(Conversation $conversation, User $user): ?ConversationParticipant
+    {
+        foreach ($conversation->getParticipants() as $cp) {
+            if ($cp->getUser()->getId() === $user->getId()) {
+                return $cp;
+            }
+        }
+
+        return null;
+    }
+
+    /** Un trajet (non supprime) dont l'un de nous deux est le conducteur, sinon null. */
+    private function sharedTrip(EntityManagerInterface $em, int $tripId, User $me, User $partner): ?Trip
+    {
+        if ($tripId <= 0) {
+            return null;
+        }
+        $trip = $em->find(Trip::class, $tripId);
+        if ($trip === null || $trip->getDeletedAt() !== null) {
+            return null;
+        }
+
+        return in_array($trip->getDriver()->getId(), [$me->getId(), $partner->getId()], true) ? $trip : null;
     }
 
     // ── SUPPRIMER UN DE MES MESSAGES (suppression "douce") ─────────────────
